@@ -249,6 +249,7 @@ export class API {
       | "type"
       | "version"
       | "versionNonce"
+      | "schemaVersion"
       | "isDeleted"
       | "groupIds"
       | "link"

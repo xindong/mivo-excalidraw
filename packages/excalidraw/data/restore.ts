@@ -38,6 +38,10 @@ import {
 } from "@excalidraw/element";
 import { LinearElementEditor } from "@excalidraw/element";
 import { bumpVersion } from "@excalidraw/element";
+import {
+  CURRENT_ELEMENT_SCHEMA_VERSION,
+  upgradeElementSchema,
+} from "@excalidraw/element";
 import { getContainerElement } from "@excalidraw/element";
 import { detectLineHeight } from "@excalidraw/element";
 import {
@@ -422,6 +426,7 @@ const restoreElementWithProperties = <
     // newly added elements
     version: element.version || 1,
     versionNonce: element.versionNonce ?? 0,
+    schemaVersion: element.schemaVersion || CURRENT_ELEMENT_SCHEMA_VERSION,
     index: element.index ?? null,
     isDeleted: element.isDeleted ?? false,
     id: element.id || randomId(),
@@ -494,7 +499,7 @@ export const restoreElement = (
     deleteInvisibleElements?: boolean;
   },
 ): typeof element | null => {
-  element = { ...element };
+  element = upgradeElementSchema({ ...element });
 
   switch (element.type) {
     case "text":
