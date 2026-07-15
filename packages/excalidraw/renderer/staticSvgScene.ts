@@ -33,6 +33,10 @@ import { getContainingFrame } from "@excalidraw/element";
 import { getCornerRadius, isPathALoop } from "@excalidraw/element";
 
 import { ShapeCache } from "@excalidraw/element";
+import {
+  createCustomElementDrawCommands,
+  drawCustomElementCommandsToSvg,
+} from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
 
@@ -602,6 +606,30 @@ const renderElementToSvg = (
         );
         addToRoot(clipG || g, element);
       }
+      break;
+    }
+    case "custom": {
+      const node = drawCustomElementCommandsToSvg(
+        svgRoot.ownerDocument,
+        createCustomElementDrawCommands(element, renderConfig.theme),
+        (fileId) => files[fileId]?.dataURL ?? null,
+        `custom-${element.id}`,
+      );
+      node.setAttribute(
+        "transform",
+        `translate(${offsetX || 0} ${offsetY || 0}) rotate(${degree} ${cx} ${cy})`,
+      );
+      if (opacity !== 1) {
+        node.setAttribute("opacity", `${opacity}`);
+      }
+      const clippedNode = maybeWrapNodesInFrameClipPath(
+        element,
+        root,
+        [node],
+        renderConfig.frameRendering,
+        elementsMap,
+      );
+      addToRoot(clippedNode || node, element);
       break;
     }
     // frames are not rendered and only acts as a container

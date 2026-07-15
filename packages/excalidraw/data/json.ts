@@ -44,6 +44,13 @@ const filterOutDeletedFiles = (
       files[element.fileId]
     ) {
       nextFiles[element.fileId] = files[element.fileId];
+    } else if (
+      !element.isDeleted &&
+      element.type === "custom" &&
+      element.previewFileId &&
+      files[element.previewFileId]
+    ) {
+      nextFiles[element.previewFileId] = files[element.previewFileId];
     }
   }
   return nextFiles;

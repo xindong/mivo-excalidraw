@@ -144,6 +144,7 @@ import {
   isBoundToContainer,
   isFrameLikeElement,
   isImageElement,
+  isCustomElement,
   isEmbeddableElement,
   isInitializedImageElement,
   isLinearElement,
@@ -3474,6 +3475,13 @@ class App extends React.Component<AppProps, AppState> {
     this.scene.getNonDeletedElements().forEach((element) => {
       if (isInitializedImageElement(element) && files[element.fileId]) {
         this.imageCache.delete(element.fileId);
+        ShapeCache.delete(element);
+      } else if (
+        isCustomElement(element) &&
+        element.previewFileId &&
+        files[element.previewFileId]
+      ) {
+        this.imageCache.delete(element.previewFileId);
         ShapeCache.delete(element);
       }
     });
@@ -12766,6 +12774,28 @@ class App extends React.Component<AppProps, AppState> {
       }
 
       if (updatedFiles.size) {
+        this.scene.triggerUpdate();
+      }
+    }
+
+    const uncachedPreviewElements = this.scene
+      .getNonDeletedElements()
+      .filter(
+        (element) =>
+          isCustomElement(element) &&
+          element.previewFileId &&
+          !this.imageCache.has(element.previewFileId),
+      );
+    if (uncachedPreviewElements.length) {
+      const { updatedFiles } = await _updateImageCache({
+        imageCache: this.imageCache,
+        fileIds: uncachedPreviewElements.map(
+          (element) => element.previewFileId!,
+        ),
+        files,
+      });
+      if (updatedFiles.size) {
+        uncachedPreviewElements.forEach((element) => ShapeCache.delete(element));
         this.scene.triggerUpdate();
       }
     }

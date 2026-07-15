@@ -405,7 +405,21 @@ export {
   mutateElement,
   newElementWith,
   bumpVersion,
+  newCustomElement,
+  registerCustomElementRenderer,
+  unregisterCustomElementRenderer,
+  getCustomElementRenderer,
+  CustomElementPainter,
 } from "@excalidraw/element";
+
+export type {
+  CustomElementRenderer,
+  CustomElementDrawCommand,
+} from "@excalidraw/element";
+export type {
+  ExcalidrawCustomElement,
+  CustomElementValue,
+} from "@excalidraw/element/types";
 
 export { CaptureUpdateAction } from "@excalidraw/element";
 

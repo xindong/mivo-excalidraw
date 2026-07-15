@@ -155,6 +155,29 @@ export type ExcalidrawImageElement = _ExcalidrawElementBase &
     crop: ImageCrop | null;
   }>;
 
+export type CustomElementValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly CustomElementValue[]
+  | { readonly [key: string]: CustomElementValue };
+
+/**
+ * A host-defined, Canvas-rendered element. The scene stores only portable data
+ * and a renderer id; executable renderer code is registered by the host app.
+ */
+export type ExcalidrawCustomElement = _ExcalidrawElementBase &
+  Readonly<{
+    type: "custom";
+    customType: string;
+    rendererId: string;
+    rendererVersion: number;
+    data: Readonly<Record<string, CustomElementValue>>;
+    /** Optional raster preview that a renderer can paint through `image()`. */
+    previewFileId: FileId | null;
+  }>;
+
 export type InitializedExcalidrawImageElement = MarkNonNullable<
   ExcalidrawImageElement,
   "fileId"
@@ -191,6 +214,7 @@ export type ExcalidrawFlowchartNodeElement =
 export type ExcalidrawRectanguloidElement =
   | ExcalidrawRectangleElement
   | ExcalidrawImageElement
+  | ExcalidrawCustomElement
   | ExcalidrawTextElement
   | ExcalidrawFreeDrawElement
   | ExcalidrawIframeLikeElement
@@ -210,6 +234,7 @@ export type ExcalidrawElement =
   | ExcalidrawArrowElement
   | ExcalidrawFreeDrawElement
   | ExcalidrawImageElement
+  | ExcalidrawCustomElement
   | ExcalidrawFrameElement
   | ExcalidrawMagicFrameElement
   | ExcalidrawIframeElement
@@ -262,6 +287,7 @@ export type ExcalidrawBindableElement =
   | ExcalidrawEllipseElement
   | ExcalidrawTextElement
   | ExcalidrawImageElement
+  | ExcalidrawCustomElement
   | ExcalidrawIframeElement
   | ExcalidrawEmbeddableElement
   | ExcalidrawFrameElement

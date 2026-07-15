@@ -49,6 +49,7 @@ import type {
   ExcalidrawArrowElement,
   ExcalidrawElbowArrowElement,
   ExcalidrawLineElement,
+  ExcalidrawCustomElement,
 } from "./types";
 
 export type ElementConstructorOpts = MarkOptional<
@@ -553,3 +554,20 @@ export const newImageElement = (
     crop: opts.crop ?? null,
   };
 };
+
+export const newCustomElement = (
+  opts: {
+    customType: ExcalidrawCustomElement["customType"];
+    rendererId: ExcalidrawCustomElement["rendererId"];
+    rendererVersion?: ExcalidrawCustomElement["rendererVersion"];
+    data?: ExcalidrawCustomElement["data"];
+    previewFileId?: ExcalidrawCustomElement["previewFileId"];
+  } & ElementConstructorOpts,
+): NonDeleted<ExcalidrawCustomElement> => ({
+  ..._newElementBase<ExcalidrawCustomElement>("custom", opts),
+  customType: opts.customType,
+  rendererId: opts.rendererId,
+  rendererVersion: opts.rendererVersion ?? 1,
+  data: opts.data ?? {},
+  previewFileId: opts.previewFileId ?? null,
+});

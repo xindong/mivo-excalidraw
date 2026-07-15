@@ -240,9 +240,16 @@ export const exportToCanvas = async (
 
   const { imageCache } = await updateImageCache({
     imageCache: new Map(),
-    fileIds: getInitializedImageElements(elementsForRender).map(
-      (element) => element.fileId,
-    ),
+    fileIds: [
+      ...getInitializedImageElements(elementsForRender).map(
+        (element) => element.fileId,
+      ),
+      ...elementsForRender.flatMap((element) =>
+        element.type === "custom" && element.previewFileId
+          ? [element.previewFileId]
+          : [],
+      ),
+    ],
     files,
   });
 

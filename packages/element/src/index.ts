@@ -63,6 +63,7 @@ export * from "./collision";
 export * from "./comparisons";
 export * from "./containerCache";
 export * from "./cropElement";
+export * from "./customElement";
 export * from "./delta";
 export * from "./distance";
 export * from "./distribute";

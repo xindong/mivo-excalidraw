@@ -24,6 +24,7 @@ import {
   newElement,
   newFrameElement,
   newImageElement,
+  newCustomElement,
   newLinearElement,
   newMagicFrameElement,
   newTextElement,
@@ -51,6 +52,7 @@ import type {
   ExcalidrawGenericElement,
   ExcalidrawIframeLikeElement,
   ExcalidrawImageElement,
+  ExcalidrawCustomElement,
   ExcalidrawLinearElement,
   ExcalidrawMagicFrameElement,
   ExcalidrawSelectionElement,
@@ -200,6 +202,13 @@ export type ExcalidrawElementSkeleton =
       y: number;
       fileId: FileId;
     } & Partial<ExcalidrawImageElement>)
+  | ({
+      type: "custom";
+      x: number;
+      y: number;
+      customType: string;
+      rendererId: string;
+    } & Partial<ExcalidrawCustomElement>)
   | ({
       type: "frame";
       children: readonly ExcalidrawElement["id"][];
@@ -610,6 +619,14 @@ export const convertToExcalidrawElements = (
           ...element,
         });
 
+        break;
+      }
+      case "custom": {
+        excalidrawElement = newCustomElement({
+          width: element?.width || DEFAULT_DIMENSION,
+          height: element?.height || DEFAULT_DIMENSION,
+          ...element,
+        });
         break;
       }
       case "frame": {

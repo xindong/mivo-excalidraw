@@ -13,6 +13,7 @@ import { deepCopyElement } from "@excalidraw/element";
 import {
   isFrameLikeElement,
   isInitializedImageElement,
+  isCustomElement,
 } from "@excalidraw/element";
 
 import { getContainingFrame } from "@excalidraw/element";
@@ -158,6 +159,11 @@ export const serializeAsClipboardJSON = ({
       foundFile = true;
       if (files && files[element.fileId]) {
         acc[element.fileId] = files[element.fileId];
+      }
+    } else if (isCustomElement(element) && element.previewFileId) {
+      foundFile = true;
+      if (files && files[element.previewFileId]) {
+        acc[element.previewFileId] = files[element.previewFileId];
       }
     }
     return acc;

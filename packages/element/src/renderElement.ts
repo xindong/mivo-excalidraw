@@ -67,6 +67,11 @@ import { getContainingFrame } from "./frame";
 import { getCornerRadius } from "./utils";
 
 import { ShapeCache } from "./shape";
+import {
+  createCustomElementDrawCommands,
+  drawCustomElementCommandsToCanvas,
+  getCustomElementRendererRevision,
+} from "./customElement";
 
 import type {
   ExcalidrawElement,
@@ -142,6 +147,7 @@ export interface ExcalidrawElementWithCanvas {
   canvasOffsetY: number;
   imageCrop: ExcalidrawImageElement["crop"] | null;
   containingFrameOpacity: number;
+  customRendererRevision: number;
 }
 
 const cappedElementCanvasSize = (
@@ -266,6 +272,7 @@ const generateElementCanvas = (
     containingFrameOpacity:
       getContainingFrame(element, elementsMap)?.opacity || 100,
     imageCrop: isImageElement(element) ? element.crop : null,
+    customRendererRevision: getCustomElementRendererRevision(),
   };
 };
 
@@ -474,6 +481,19 @@ const drawElementOnCanvas = (
       context.restore();
       break;
     }
+    case "custom": {
+      context.save();
+      const commands = createCustomElementDrawCommands(
+        element,
+        renderConfig.theme,
+      );
+      drawCustomElementCommandsToCanvas(context, commands, (fileId) => {
+        const image = renderConfig.imageCache.get(fileId)?.image;
+        return image && !(image instanceof Promise) ? image : null;
+      });
+      context.restore();
+      break;
+    }
     default: {
       if (isTextElement(element)) {
         const rtl = isRTL(element.text);
@@ -562,7 +582,10 @@ const generateElementWithCanvas = (
     shouldRegenerateBecauseZoom ||
     prevElementWithCanvas.theme !== appState.theme ||
     prevElementWithCanvas.imageCrop !== imageCrop ||
-    prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity
+    prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity ||
+    (element.type === "custom" &&
+      prevElementWithCanvas.customRendererRevision !==
+        getCustomElementRendererRevision())
   ) {
     const elementWithCanvas = generateElementCanvas(
       element,
@@ -819,6 +842,7 @@ export const renderElement = (
     case "line":
     case "arrow":
     case "image":
+    case "custom":
     case "text":
     case "iframe":
     case "embeddable": {
