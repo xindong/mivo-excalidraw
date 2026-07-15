@@ -41,6 +41,8 @@ import "./CustomElementOverlayLayer.scss";
 
 type OverlaySize = Readonly<{ width: number; height: number }>;
 
+export const CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS = "custom-element-overlay__item";
+
 const useExternalRevision = (
   subscribe: (listener: () => void) => () => void,
   getSnapshot: () => number,
@@ -320,7 +322,9 @@ const OverlayItem = ({
   return (
     <div
       ref={setNode}
-      className={`custom-element-overlay__item ${overlay.className ?? ""}`}
+      className={`${CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS} ${
+        overlay.className ?? ""
+      }`}
       data-custom-element-overlay={overlay.id}
       data-custom-element-id={context.element.id}
       style={{
@@ -343,7 +347,6 @@ const OverlayItem = ({
       onClick={stopPropagation}
       onDoubleClick={stopPropagation}
       onContextMenu={stopPropagation}
-      onWheel={stopPropagation}
       onKeyDown={stopPropagation}
     >
       <OverlayErrorBoundary overlayKey={overlayKey} resetToken={overlay}>

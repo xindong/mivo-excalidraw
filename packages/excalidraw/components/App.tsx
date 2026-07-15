@@ -441,7 +441,10 @@ import { EraserTrail } from "../eraser";
 import { getShortcutKey } from "../shortcut";
 import { tryParseSpreadsheet } from "../charts";
 import { AnimationController } from "../renderer/animation";
-import { CustomElementOverlayLayer } from "../customElementOverlay/CustomElementOverlayLayer";
+import {
+  CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS,
+  CustomElementOverlayLayer,
+} from "../customElementOverlay/CustomElementOverlayLayer";
 import { CustomElementOverlayRuntime } from "../customElementOverlay/runtime";
 
 import ConvertElementTypePopup, {
@@ -13929,7 +13932,9 @@ class App extends React.Component<AppProps, AppState> {
           event.target instanceof HTMLTextAreaElement ||
           event.target instanceof HTMLIFrameElement ||
           (event.target instanceof HTMLElement &&
-            event.target.classList.contains(CLASSES.FRAME_NAME))
+            event.target.classList.contains(CLASSES.FRAME_NAME)) ||
+          (event.target instanceof Element &&
+            event.target.closest(`.${CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS}`))
         )
       ) {
         // prevent zooming the browser (but allow scrolling DOM)
