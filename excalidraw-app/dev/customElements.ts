@@ -11,7 +11,7 @@ const MEDIA_RENDERER_ID = "mivo.dev.media-card";
 const STATUS_RENDERER_ID = "mivo.dev.status-card";
 const PREVIEW_FILE_ID = "mivo-custom-element-preview" as FileId;
 
-const previewDataURL = `data:image/svg+xml,${encodeURIComponent(`
+const previewSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -26,7 +26,11 @@ const previewDataURL = `data:image/svg+xml,${encodeURIComponent(`
     <path d="M395 178L620 270 395 362Z" fill="#fff" opacity=".94"/>
     <text x="48" y="72" fill="#fff" font-family="Arial" font-size="28" font-weight="700">MIVO CUSTOM ELEMENT</text>
   </svg>
-`)}` as DataURL;
+`;
+
+const previewDataURL = `data:image/svg+xml;base64,${window.btoa(
+  previewSvg,
+)}` as DataURL;
 
 export const registerCustomElementDevRenderers = () => {
   const unregisterMedia = registerCustomElementRenderer({
