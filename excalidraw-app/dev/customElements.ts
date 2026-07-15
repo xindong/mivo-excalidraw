@@ -10,6 +10,8 @@ import { MIME_TYPES, THEME } from "@excalidraw/common";
 import type { DataURL } from "@excalidraw/excalidraw/types";
 import type { CustomElementValue, FileId } from "@excalidraw/element/types";
 
+import { registerCustomElementDevOverlays } from "./customElementOverlays";
+
 const MEDIA_RENDERER_ID = "mivo.dev.media-card";
 const STATUS_RENDERER_ID = "mivo.dev.status-card";
 const PREVIEW_FILE_ID = "mivo-custom-element-preview" as FileId;
@@ -70,6 +72,7 @@ const previewDataURL = `data:image/svg+xml;base64,${window.btoa(
 )}` as DataURL;
 
 export const registerCustomElementDevRenderers = () => {
+  const unregisterOverlays = registerCustomElementDevOverlays();
   const unregisterMedia = registerCustomElement(
     defineCustomElement<DevMediaData>({
       type: "dev.media",
@@ -129,19 +132,17 @@ export const registerCustomElementDevRenderers = () => {
           const previewHeight = element.height - footerHeight;
 
           painter.rect(0, 0, element.width, element.height, {
-            radius: 18,
+            radius: 0,
             fill: dark ? "#202027" : "#ffffff",
-            stroke: dark ? "#4b4b57" : "#d9d9e3",
-            strokeWidth: 1.5,
           });
           if (element.previewFileId) {
             painter.image(
               element.previewFileId,
-              1.5,
-              1.5,
-              element.width - 3,
+              0,
+              0,
+              element.width,
               previewHeight,
-              { fit: "cover", radius: 17 },
+              { fit: "cover", radius: 0 },
             );
           }
           painter.rect(0, previewHeight, element.width, footerHeight, {
@@ -226,6 +227,7 @@ export const registerCustomElementDevRenderers = () => {
   });
 
   return () => {
+    unregisterOverlays();
     unregisterMedia();
     unregisterStatus();
   };

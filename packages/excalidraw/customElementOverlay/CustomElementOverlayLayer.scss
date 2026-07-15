@@ -1,0 +1,30 @@
+.excalidraw {
+  .custom-element-overlay,
+  .custom-element-overlay__layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .custom-element-overlay__layer--surface {
+    z-index: var(--zIndex-canvasButtons);
+  }
+
+  .custom-element-overlay__layer--panel {
+    z-index: var(--zIndex-canvasButtons);
+  }
+
+  .custom-element-overlay__layer--popover {
+    z-index: var(--zIndex-hyperlinkContainer);
+    overflow: visible;
+  }
+
+  .custom-element-overlay__item {
+    position: absolute;
+    margin: 0;
+    transform-origin: top left;
+    touch-action: auto;
+    user-select: auto;
+  }
+}

@@ -712,6 +712,39 @@ export type ActivateCustomElementOptions = CustomElementOperationOptions &
     activation?: Partial<CustomElementActivation>;
   }>;
 
+export type CustomElementOverlayStateUpdater<TState> =
+  | TState
+  | ((previous: TState | undefined) => TState);
+
+/** Per-editor transient UI state. Nothing stored here is serialized. */
+export type CustomElementOverlayController = Readonly<{
+  open: <TState = unknown>(
+    elementId: ExcalidrawCustomElement["id"],
+    overlayId: string,
+    state?: TState,
+  ) => void;
+  close: (elementId: ExcalidrawCustomElement["id"], overlayId: string) => void;
+  toggle: <TState = unknown>(
+    elementId: ExcalidrawCustomElement["id"],
+    overlayId: string,
+    state?: TState,
+  ) => void;
+  setState: <TState = unknown>(
+    elementId: ExcalidrawCustomElement["id"],
+    overlayId: string,
+    updater: CustomElementOverlayStateUpdater<TState>,
+  ) => void;
+  getState: <TState = unknown>(
+    elementId: ExcalidrawCustomElement["id"],
+    overlayId: string,
+  ) => TState | undefined;
+  isOpen: (
+    elementId: ExcalidrawCustomElement["id"],
+    overlayId: string,
+  ) => boolean;
+  closeAll: (elementId?: ExcalidrawCustomElement["id"]) => void;
+}>;
+
 export interface ExcalidrawProps {
   onChange?: (
     elements: readonly OrderedExcalidrawElement[],
@@ -1172,6 +1205,7 @@ export interface ExcalidrawImperativeAPI {
     elementId: ExcalidrawCustomElement["id"],
     options?: ActivateCustomElementOptions,
   ) => Promise<void>;
+  customElementOverlays: CustomElementOverlayController;
   id: string;
   setActiveTool: InstanceType<typeof App>["setActiveTool"];
   setCursor: InstanceType<typeof App>["setCursor"];

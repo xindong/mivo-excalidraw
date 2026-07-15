@@ -28,7 +28,10 @@ import {
   useAppStateValue as _useAppStateValue,
   useOnAppStateChange as _useOnAppStateChange,
 } from "./hooks/useAppStateValue";
-export { useRegisterCustomElement } from "./hooks/useCustomElement";
+export {
+  useRegisterCustomElement,
+  useRegisterCustomElementOverlays,
+} from "./hooks/useCustomElement";
 import { EditorJotaiProvider, editorJotaiStore } from "./editor-jotai";
 import polyfill from "./polyfill";
 
@@ -442,6 +445,32 @@ export type {
   CustomElementValue,
   CustomElementResource,
 } from "@excalidraw/element/types";
+
+export {
+  defineCustomElementOverlay,
+  defineCustomElementWithOverlays,
+  registerCustomElementWithOverlays,
+  registerCustomElementOverlays,
+  unregisterCustomElementOverlays,
+  getCustomElementOverlays,
+} from "./customElementOverlay/registry";
+export type {
+  CustomElementOverlayDefinition,
+  CustomElementOverlayRenderContext,
+  CustomElementOverlayVisibility,
+  CustomElementOverlayVisibilityContext,
+  CustomElementOverlayKind,
+  CustomElementOverlayCoordinateSpace,
+  CustomElementOverlayPlacement,
+  CustomElementOverlayPoint,
+  CustomElementOverlayRect,
+  CustomElementOverlayOffset,
+  CustomElementWithOverlays,
+} from "./customElementOverlay/types";
+export type {
+  CustomElementOverlayController,
+  CustomElementOverlayStateUpdater,
+} from "./types";
 
 export { CaptureUpdateAction } from "@excalidraw/element";
 

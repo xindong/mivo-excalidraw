@@ -441,6 +441,8 @@ import { EraserTrail } from "../eraser";
 import { getShortcutKey } from "../shortcut";
 import { tryParseSpreadsheet } from "../charts";
 import { AnimationController } from "../renderer/animation";
+import { CustomElementOverlayLayer } from "../customElementOverlay/CustomElementOverlayLayer";
+import { CustomElementOverlayRuntime } from "../customElementOverlay/runtime";
 
 import ConvertElementTypePopup, {
   getConversionTypeFromElements,
@@ -734,6 +736,7 @@ class App extends React.Component<AppProps, AppState> {
   public onStateChange: OnStateChange = this.appStateObserver.onStateChange;
 
   public flowchart: AppFlowchart = new AppFlowchart(this);
+  public customElementOverlayRuntime = new CustomElementOverlayRuntime();
 
   bindModeHandler: ReturnType<typeof setTimeout> | null = null;
   private textWysiwygSubmitHandler: ReturnType<typeof textWysiwyg> | null =
@@ -810,6 +813,7 @@ class App extends React.Component<AppProps, AppState> {
       insertCustomElementFromFile: this.insertCustomElementFromFile,
       refreshCustomElementPreview: this.refreshCustomElementPreview,
       activateCustomElement: this.activateCustomElement,
+      customElementOverlays: this.customElementOverlayRuntime,
       resetScene: this.resetScene,
       getSceneElementsIncludingDeleted: this.getSceneElementsIncludingDeleted,
       getSceneElementsMapIncludingDeleted:
@@ -2582,6 +2586,15 @@ class App extends React.Component<AppProps, AppState> {
                             onPointerDown={this.handleCanvasPointerDown}
                             onDoubleClick={this.handleCanvasDoubleClick}
                           />
+                          <CustomElementOverlayLayer
+                            elements={this.scene.getNonDeletedElements()}
+                            elementsMap={allElementsMap}
+                            visibleElements={visibleElements}
+                            appState={this.state}
+                            api={this.api}
+                            assets={this.props.customElementAssets ?? null}
+                            runtime={this.customElementOverlayRuntime}
+                          />
                           {this.isDefaultUIEnabled() &&
                             this.state.userToFollow && (
                               <FollowMode
@@ -3504,6 +3517,7 @@ class App extends React.Component<AppProps, AppState> {
 
   public async componentDidMount() {
     this.unmounted = false;
+    this.customElementOverlayRuntime.reset();
     this.api = this.createExcalidrawAPI();
 
     this.excalidrawContainerValue.container =
@@ -3628,6 +3642,7 @@ class App extends React.Component<AppProps, AppState> {
     this.renderer = new Renderer(this.scene);
     this.files = {};
     this.imageCache.clear();
+    this.customElementOverlayRuntime.destroy();
     this.resizeObserver?.disconnect();
     this.unmounted = true;
     this.removeEventListeners();
