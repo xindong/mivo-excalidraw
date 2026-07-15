@@ -19,6 +19,7 @@ import {
   newFreeDrawElement,
   newIframeElement,
   newImageElement,
+  newCustomElement,
   newLinearElement,
   newMagicFrameElement,
   newTextElement,
@@ -36,6 +37,7 @@ import type {
   ExcalidrawLinearElement,
   ExcalidrawFreeDrawElement,
   ExcalidrawImageElement,
+  ExcalidrawCustomElement,
   FileId,
   ExcalidrawFrameElement,
   ExcalidrawElementType,
@@ -214,6 +216,19 @@ export class API {
     fileId?: T extends "image" ? string : never;
     scale?: T extends "image" ? ExcalidrawImageElement["scale"] : never;
     status?: T extends "image" ? ExcalidrawImageElement["status"] : never;
+    customType?: T extends "custom"
+      ? ExcalidrawCustomElement["customType"]
+      : never;
+    rendererId?: T extends "custom"
+      ? ExcalidrawCustomElement["rendererId"]
+      : never;
+    rendererVersion?: T extends "custom"
+      ? ExcalidrawCustomElement["rendererVersion"]
+      : never;
+    data?: T extends "custom" ? ExcalidrawCustomElement["data"] : never;
+    previewFileId?: T extends "custom"
+      ? ExcalidrawCustomElement["previewFileId"]
+      : never;
     startBinding?: T extends "arrow"
       ? ExcalidrawArrowElement["startBinding"] | ExcalidrawElbowArrowElement["startBinding"]
       : never;
@@ -369,6 +384,18 @@ export class API {
           fileId: (rest.fileId as string as FileId) ?? null,
           status: rest.status || "saved",
           scale: rest.scale || [1, 1],
+        });
+        break;
+      case "custom":
+        element = newCustomElement({
+          ...base,
+          width,
+          height,
+          customType: rest.customType ?? "custom",
+          rendererId: rest.rendererId ?? "custom",
+          rendererVersion: rest.rendererVersion,
+          data: rest.data,
+          previewFileId: rest.previewFileId,
         });
         break;
       case "frame":

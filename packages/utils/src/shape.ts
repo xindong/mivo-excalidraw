@@ -39,6 +39,7 @@ import { getElementAbsoluteCoords } from "@excalidraw/element";
 import type {
   ElementsMap,
   ExcalidrawBindableElement,
+  ExcalidrawCustomElement,
   ExcalidrawDiamondElement,
   ExcalidrawElement,
   ExcalidrawEllipseElement,
@@ -108,6 +109,7 @@ type RectangularElement =
   | ExcalidrawFrameLikeElement
   | ExcalidrawEmbeddableElement
   | ExcalidrawImageElement
+  | ExcalidrawCustomElement
   | ExcalidrawIframeElement
   | ExcalidrawTextElement
   | ExcalidrawSelectionElement;

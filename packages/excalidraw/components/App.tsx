@@ -12780,22 +12780,26 @@ class App extends React.Component<AppProps, AppState> {
 
     const uncachedPreviewElements = this.scene
       .getNonDeletedElements()
-      .filter(
-        (element) =>
-          isCustomElement(element) &&
-          element.previewFileId &&
-          !this.imageCache.has(element.previewFileId),
-      );
+      .flatMap((element) => {
+        if (
+          !isCustomElement(element) ||
+          !element.previewFileId ||
+          this.imageCache.has(element.previewFileId)
+        ) {
+          return [];
+        }
+        return [{ element, fileId: element.previewFileId }];
+      });
     if (uncachedPreviewElements.length) {
       const { updatedFiles } = await _updateImageCache({
         imageCache: this.imageCache,
-        fileIds: uncachedPreviewElements.map(
-          (element) => element.previewFileId!,
-        ),
+        fileIds: uncachedPreviewElements.map(({ fileId }) => fileId),
         files,
       });
       if (updatedFiles.size) {
-        uncachedPreviewElements.forEach((element) => ShapeCache.delete(element));
+        uncachedPreviewElements.forEach(({ element }) =>
+          ShapeCache.delete(element),
+        );
         this.scene.triggerUpdate();
       }
     }

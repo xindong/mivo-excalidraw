@@ -345,6 +345,7 @@
     "freedraw": "Freedraw",
     "text": "Text",
     "image": "Image",
+    "custom": "Custom element",
     "group": "Group",
     "frame": "Frame",
     "magicframe": "Wireframe to code",
