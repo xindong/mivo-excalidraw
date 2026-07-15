@@ -44,6 +44,7 @@ import {
   isFreeDrawElement,
   isIframeLikeElement,
   isImageElement,
+  isCustomElement,
   isLinearElement,
   isTextElement,
 } from "./typeChecks";
@@ -98,7 +99,11 @@ export const shouldTestInside = (element: ExcalidrawElement) => {
     return isDraggableFromInside && isPathALoop(element.points);
   }
 
-  return isDraggableFromInside || isImageElement(element);
+  return (
+    isDraggableFromInside ||
+    isImageElement(element) ||
+    isCustomElement(element)
+  );
 };
 
 export type HitTestArgs = {
