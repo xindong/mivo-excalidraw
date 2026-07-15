@@ -99,79 +99,88 @@ export const registerCustomElementDevRenderers = () => {
           if (!resource || !assets) {
             return null;
           }
-          const original =
-            file ?? (await assets.resolve(resource, { signal }));
+          const original = file ?? (await assets.resolve(resource, { signal }));
           return original instanceof Blob
             ? previews.put(original, { name: resource.name })
             : null;
         },
       },
-      async activate({ element, assets, signal }) {
+      async activate({ element, assets, signal, activation }) {
         const original =
           element.resource && assets
             ? await assets.resolve(element.resource, { signal })
             : null;
+        const point = activation.point
+          ? `；局部坐标 (${Math.round(activation.point.x)}, ${Math.round(
+              activation.point.y,
+            )})`
+          : "";
         window.alert(
           original
-            ? `已通过 AssetStore 找到原始文件：${element.resource?.id}`
+            ? `已通过 AssetStore 找到原始文件：${element.resource?.id}${point}`
             : "该静态测试卡片没有绑定原始文件",
         );
       },
       renderer: {
         id: MEDIA_RENDERER_ID,
         render: ({ element, painter, theme }) => {
-      const dark = theme === THEME.DARK;
-      const footerHeight = Math.max(54, element.height * 0.16);
-      const previewHeight = element.height - footerHeight;
+          const dark = theme === THEME.DARK;
+          const footerHeight = Math.max(54, element.height * 0.16);
+          const previewHeight = element.height - footerHeight;
 
-      painter.rect(0, 0, element.width, element.height, {
-        radius: 18,
-        fill: dark ? "#202027" : "#ffffff",
-        stroke: dark ? "#4b4b57" : "#d9d9e3",
-        strokeWidth: 1.5,
-      });
-      if (element.previewFileId) {
-        painter.image(
-          element.previewFileId,
-          1.5,
-          1.5,
-          element.width - 3,
-          previewHeight,
-          { fit: "cover", radius: 17 },
-        );
-      }
-      painter.rect(0, previewHeight, element.width, footerHeight, {
-        fill: dark ? "#202027" : "#ffffff",
-      });
-      painter.line(16, previewHeight, element.width - 16, previewHeight, {
-        stroke: dark ? "#35353e" : "#eeeeF3",
-      });
-      painter.text(
-        String(element.data.name ?? "Mivo video card"),
-        18,
-        previewHeight + footerHeight / 2,
-        {
-          color: dark ? "#f6f6f8" : "#202027",
-          fontSize: Math.max(14, footerHeight * 0.28),
-          fontWeight: 650,
-          baseline: "middle",
-          maxWidth: element.width - 100,
-        },
-      );
-      painter.rect(
-        element.width - 62,
-        previewHeight + footerHeight / 2 - 14,
-        44,
-        28,
-        { radius: 8, fill: "#111118cc" },
-      );
-      painter.text("8s", element.width - 40, previewHeight + footerHeight / 2, {
-        color: "#ffffff",
-        fontSize: 14,
-        fontWeight: 700,
-        align: "center",
-        baseline: "middle",
-      });
+          painter.rect(0, 0, element.width, element.height, {
+            radius: 18,
+            fill: dark ? "#202027" : "#ffffff",
+            stroke: dark ? "#4b4b57" : "#d9d9e3",
+            strokeWidth: 1.5,
+          });
+          if (element.previewFileId) {
+            painter.image(
+              element.previewFileId,
+              1.5,
+              1.5,
+              element.width - 3,
+              previewHeight,
+              { fit: "cover", radius: 17 },
+            );
+          }
+          painter.rect(0, previewHeight, element.width, footerHeight, {
+            fill: dark ? "#202027" : "#ffffff",
+          });
+          painter.line(16, previewHeight, element.width - 16, previewHeight, {
+            stroke: dark ? "#35353e" : "#eeeeF3",
+          });
+          painter.text(
+            String(element.data.name ?? "Mivo video card"),
+            18,
+            previewHeight + footerHeight / 2,
+            {
+              color: dark ? "#f6f6f8" : "#202027",
+              fontSize: Math.max(14, footerHeight * 0.28),
+              fontWeight: 650,
+              baseline: "middle",
+              maxWidth: element.width - 100,
+            },
+          );
+          painter.rect(
+            element.width - 62,
+            previewHeight + footerHeight / 2 - 14,
+            44,
+            28,
+            { radius: 8, fill: "#111118cc" },
+          );
+          painter.text(
+            "8s",
+            element.width - 40,
+            previewHeight + footerHeight / 2,
+            {
+              color: "#ffffff",
+              fontSize: 14,
+              fontWeight: 700,
+              align: "center",
+              baseline: "middle",
+            },
+          );
         },
       },
     }),

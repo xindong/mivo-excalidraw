@@ -399,7 +399,7 @@ import {
 
 import { Fonts } from "../fonts";
 import { editorJotaiStore, type WritableAtom } from "../editor-jotai";
-import { ImageSceneDataError } from "../errors";
+import { AbortError, ImageSceneDataError } from "../errors";
 import {
   getSnapLinesAtPointer,
   snapDraggedElements,
@@ -517,6 +517,14 @@ import type { Action, ActionResult } from "../actions/types";
 
 const AppContext = React.createContext<AppClassProperties>(null!);
 const AppPropsContext = React.createContext<AppProps>(null!);
+
+const throwIfCustomElementOperationAborted = (signal: AbortSignal) => {
+  if (!signal.aborted) {
+    return;
+  }
+  const reason = (signal as AbortSignal & { reason?: unknown }).reason;
+  throw reason ?? new AbortError();
+};
 
 /** single source of truth for the `--right-sidebar-width` CSS variable */
 const RIGHT_SIDEBAR_WIDTH = 302;
@@ -5185,7 +5193,9 @@ class App extends React.Component<AppProps, AppState> {
           `No custom element definition registered for \"${options.customType}\"`,
         );
       }
-      if (!definition.file?.import) {
+      const fileDefinition = definition.file;
+      const importFile = fileDefinition?.import;
+      if (!importFile) {
         throw new Error(
           `Custom element \"${options.customType}\" does not support file import`,
         );
@@ -5197,19 +5207,19 @@ class App extends React.Component<AppProps, AppState> {
       }
 
       const signal = options.signal ?? new AbortController().signal;
-      signal.throwIfAborted();
-      const result = await definition.file.import({
+      throwIfCustomElementOperationAborted(signal);
+      const result = await importFile({
         file: options.file,
         assets: this.props.customElementAssets ?? null,
         previews: this.createCustomElementPreviewStore(),
         signal,
       });
-      signal.throwIfAborted();
+      throwIfCustomElementOperationAborted(signal);
       const previewFileId =
         result.previewFileId !== undefined
           ? result.previewFileId
-          : definition.file.createPreview
-          ? await definition.file.createPreview({
+          : fileDefinition.createPreview
+          ? await fileDefinition.createPreview({
               element: null,
               resource: result.resource ?? null,
               data: result.data,
@@ -5219,7 +5229,7 @@ class App extends React.Component<AppProps, AppState> {
               signal,
             })
           : null;
-      signal.throwIfAborted();
+      throwIfCustomElementOperationAborted(signal);
 
       const width = options.width ?? result.width ?? 320;
       const height = options.height ?? result.height ?? 200;
@@ -5264,14 +5274,15 @@ class App extends React.Component<AppProps, AppState> {
         throw new Error(`Custom element \"${elementId}\" was not found`);
       }
       const definition = getCustomElementDefinition(element.customType);
-      if (!definition?.file?.createPreview) {
+      const createPreview = definition?.file?.createPreview;
+      if (!createPreview) {
         throw new Error(
           `Custom element \"${element.customType}\" does not support preview refresh`,
         );
       }
 
       const signal = options?.signal ?? new AbortController().signal;
-      const previewFileId = await definition.file.createPreview({
+      const previewFileId = await createPreview({
         element,
         resource: element.resource,
         data: element.data,
@@ -5280,11 +5291,14 @@ class App extends React.Component<AppProps, AppState> {
         previews: this.createCustomElementPreviewStore(),
         signal,
       });
-      signal.throwIfAborted();
-      const updatedElement = newElementWith(element, {
-        previewFileId,
-        status: "ready",
-      });
+      throwIfCustomElementOperationAborted(signal);
+      const updatedElement = newElementWith(
+        element as NonDeleted<ExcalidrawCustomElement>,
+        {
+          previewFileId,
+          status: "ready",
+        },
+      );
       this.updateScene({
         elements: this.scene
           .getElementsIncludingDeleted()
@@ -5307,11 +5321,17 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
       const signal = options?.signal ?? new AbortController().signal;
-      signal.throwIfAborted();
+      throwIfCustomElementOperationAborted(signal);
+      const activation = options?.activation;
       await definition.activate({
         element,
         assets: this.props.customElementAssets ?? null,
         signal,
+        activation: {
+          source: activation?.source ?? "api",
+          point: activation?.point ?? null,
+          modifiers: activation?.modifiers ?? null,
+        },
       });
     };
 
@@ -7382,12 +7402,31 @@ class App extends React.Component<AppProps, AppState> {
       return;
     }
 
-    const hitCustomElement =
-      selectedElements.length === 1 && isCustomElement(selectedElements[0])
-        ? selectedElements[0]
-        : this.getElementAtPosition(sceneX, sceneY);
+    const hitCustomElement = this.getElementAtPosition(sceneX, sceneY);
     if (isCustomElement(hitCustomElement)) {
-      void this.activateCustomElement(hitCustomElement.id).catch((error) => {
+      const [unrotatedX, unrotatedY] = pointRotateRads(
+        pointFrom(sceneX, sceneY),
+        pointFrom(
+          hitCustomElement.x + hitCustomElement.width / 2,
+          hitCustomElement.y + hitCustomElement.height / 2,
+        ),
+        -hitCustomElement.angle as Radians,
+      );
+      void this.activateCustomElement(hitCustomElement.id, {
+        activation: {
+          source: "canvas",
+          point: {
+            x: unrotatedX - hitCustomElement.x,
+            y: unrotatedY - hitCustomElement.y,
+          },
+          modifiers: {
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+          },
+        },
+      }).catch((error) => {
         console.error(error);
         this.setToast({
           message:

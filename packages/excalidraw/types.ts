@@ -47,6 +47,7 @@ import type {
 
 import type {
   CaptureUpdateActionType,
+  CustomElementActivation,
   CustomElementAssetStore,
   DurableIncrement,
   EphemeralIncrement,
@@ -706,6 +707,11 @@ export type CustomElementOperationOptions = Readonly<{
   signal?: AbortSignal;
 }>;
 
+export type ActivateCustomElementOptions = CustomElementOperationOptions &
+  Readonly<{
+    activation?: Partial<CustomElementActivation>;
+  }>;
+
 export interface ExcalidrawProps {
   onChange?: (
     elements: readonly OrderedExcalidrawElement[],
@@ -1164,7 +1170,7 @@ export interface ExcalidrawImperativeAPI {
   ) => Promise<NonDeleted<ExcalidrawCustomElement>>;
   activateCustomElement: (
     elementId: ExcalidrawCustomElement["id"],
-    options?: CustomElementOperationOptions,
+    options?: ActivateCustomElementOptions,
   ) => Promise<void>;
   id: string;
   setActiveTool: InstanceType<typeof App>["setActiveTool"];

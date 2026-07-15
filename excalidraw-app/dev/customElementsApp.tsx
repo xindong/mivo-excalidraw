@@ -2,6 +2,7 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Excalidraw } from "@excalidraw/excalidraw";
+
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import {
@@ -73,7 +74,9 @@ const CustomElementsDevApp = () => {
             } catch (error) {
               api.setToast({
                 message:
-                  error instanceof Error ? error.message : "导入 Custom Element 失败",
+                  error instanceof Error
+                    ? error.message
+                    : "导入 Custom Element 失败",
               });
             } finally {
               input.value = "";

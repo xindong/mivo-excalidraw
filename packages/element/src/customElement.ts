@@ -10,9 +10,19 @@ import type {
 
 export type CustomElementImageFit = "fill" | "contain" | "cover";
 
-export type CustomElementData = Readonly<
-  Record<string, CustomElementValue>
->;
+export type CustomElementTextStyle = Readonly<{
+  color?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: number | string;
+  align?: CanvasTextAlign;
+  baseline?: CanvasTextBaseline;
+  maxWidth?: number;
+  /** `ellipsis` keeps glyph proportions; `compress` mirrors Canvas fillText. */
+  overflow?: "ellipsis" | "compress" | "visible";
+}>;
+
+export type CustomElementData = Readonly<Record<string, CustomElementValue>>;
 
 export type TypedExcalidrawCustomElement<
   TData extends CustomElementData = CustomElementData,
@@ -34,15 +44,11 @@ export type CustomElementAssetStore = Readonly<{
   remove?: (resource: CustomElementResource) => Promise<void>;
 }>;
 
-export const defineCustomElementAssetStore = (
-  store: CustomElementAssetStore,
-) => store;
+export const defineCustomElementAssetStore = (store: CustomElementAssetStore) =>
+  store;
 
 export type CustomElementPreviewStore = Readonly<{
-  put: (
-    preview: File | Blob,
-    options?: { name?: string },
-  ) => Promise<FileId>;
+  put: (preview: File | Blob, options?: { name?: string }) => Promise<FileId>;
 }>;
 
 export type CustomElementFileContext = Readonly<{
@@ -59,6 +65,19 @@ export type CustomElementImportResult<
   previewFileId?: FileId | null;
   width?: number;
   height?: number;
+}>;
+
+export type CustomElementActivation = Readonly<{
+  /** Where the activation originated. */
+  source: "canvas" | "api";
+  /** Point inside the unrotated element bounds, in element-local units. */
+  point: Readonly<{ x: number; y: number }> | null;
+  modifiers: Readonly<{
+    altKey: boolean;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+  }> | null;
 }>;
 
 export type CustomElementDrawCommand =
@@ -132,6 +151,77 @@ export type CustomElementDrawCommand =
       radius: number;
     };
 
+let customElementTextMeasurementContext:
+  | CanvasRenderingContext2D
+  | null
+  | undefined;
+
+const getCustomElementTextMeasurementContext = () => {
+  if (customElementTextMeasurementContext !== undefined) {
+    return customElementTextMeasurementContext;
+  }
+  if (typeof document === "undefined") {
+    return null;
+  }
+  customElementTextMeasurementContext = document
+    .createElement("canvas")
+    .getContext("2d");
+  return customElementTextMeasurementContext;
+};
+
+export const measureCustomElementText = (
+  text: string,
+  style: Pick<
+    CustomElementTextStyle,
+    "fontSize" | "fontFamily" | "fontWeight"
+  > = {},
+) => {
+  const fontSize = style.fontSize ?? 16;
+  const fontFamily = style.fontFamily ?? "Arial, sans-serif";
+  const fontWeight = style.fontWeight ?? 400;
+  const context = getCustomElementTextMeasurementContext();
+  if (context) {
+    context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    return context.measureText(text).width;
+  }
+  return Array.from(text).reduce((width, character) => {
+    if (/\s/.test(character)) {
+      return width + fontSize * 0.33;
+    }
+    return width + fontSize * (/^[\x00-\x7F]$/.test(character) ? 0.6 : 1);
+  }, 0);
+};
+
+export const ellipsizeCustomElementText = (
+  text: string,
+  maxWidth: number,
+  style: Pick<
+    CustomElementTextStyle,
+    "fontSize" | "fontFamily" | "fontWeight"
+  > = {},
+) => {
+  if (measureCustomElementText(text, style) <= maxWidth) {
+    return text;
+  }
+  const ellipsis = "…";
+  if (measureCustomElementText(ellipsis, style) > maxWidth) {
+    return "";
+  }
+  const characters = Array.from(text);
+  let low = 0;
+  let high = characters.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    const candidate = `${characters.slice(0, middle).join("")}${ellipsis}`;
+    if (measureCustomElementText(candidate, style) <= maxWidth) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return `${characters.slice(0, low).join("")}${ellipsis}`;
+};
+
 export class CustomElementPainter {
   private readonly commands: CustomElementDrawCommand[] = [];
 
@@ -196,28 +286,32 @@ export class CustomElementPainter {
     text: string,
     x: number,
     y: number,
-    style: {
-      color?: string;
-      fontSize?: number;
-      fontFamily?: string;
-      fontWeight?: number | string;
-      align?: CanvasTextAlign;
-      baseline?: CanvasTextBaseline;
-      maxWidth?: number;
-    } = {},
+    style: CustomElementTextStyle = {},
   ) {
+    const fontSize = style.fontSize ?? 16;
+    const fontFamily = style.fontFamily ?? "Arial, sans-serif";
+    const fontWeight = style.fontWeight ?? 400;
+    const overflow = style.overflow ?? "ellipsis";
+    const fittedText =
+      style.maxWidth !== undefined && overflow === "ellipsis"
+        ? ellipsizeCustomElementText(text, style.maxWidth, {
+            fontSize,
+            fontFamily,
+            fontWeight,
+          })
+        : text;
     this.commands.push({
       type: "text",
-      text,
+      text: fittedText,
       x,
       y,
       color: style.color ?? "#1b1b1f",
-      fontSize: style.fontSize ?? 16,
-      fontFamily: style.fontFamily ?? "Arial, sans-serif",
-      fontWeight: style.fontWeight ?? 400,
+      fontSize,
+      fontFamily,
+      fontWeight,
       align: style.align ?? "left",
       baseline: style.baseline ?? "alphabetic",
-      maxWidth: style.maxWidth,
+      maxWidth: overflow === "compress" ? style.maxWidth : undefined,
     });
   }
 
@@ -302,12 +396,10 @@ export type CustomElementDefinition<
       element: TypedExcalidrawCustomElement<TData>;
       assets: CustomElementAssetStore | null;
       signal: AbortSignal;
+      activation: CustomElementActivation;
     }>,
   ) => void | Promise<void>;
-  migrate?: (
-    data: CustomElementData,
-    fromVersion: number,
-  ) => TData;
+  migrate?: (data: CustomElementData, fromVersion: number) => TData;
 }>;
 
 export const defineCustomElement = <TData extends CustomElementData>(
@@ -339,17 +431,12 @@ export const customElementDefinitionAcceptsFile = (
 };
 
 const rendererRegistry = new Map<string, CustomElementRenderer<any>>();
-const definitionRegistry = new Map<
-  string,
-  CustomElementDefinition<any>
->();
+const definitionRegistry = new Map<string, CustomElementDefinition<any>>();
 let rendererRegistryRevision = 0;
 
 export const getCustomElementRendererRevision = () => rendererRegistryRevision;
 
-export const registerCustomElementRenderer = <
-  TData extends CustomElementData,
->(
+export const registerCustomElementRenderer = <TData extends CustomElementData>(
   renderer: CustomElementRenderer<TData>,
 ) => {
   rendererRegistry.set(renderer.id, renderer as CustomElementRenderer<any>);
@@ -414,9 +501,10 @@ export const registerCustomElement = <TData extends CustomElementData>(
     : null;
 
   return () => {
-    if (definitionRegistry.get(definition.type) === definition) {
-      definitionRegistry.delete(definition.type);
+    if (definitionRegistry.get(definition.type) !== definition) {
+      return;
     }
+    definitionRegistry.delete(definition.type);
     unregisterRenderer?.();
   };
 };
@@ -612,7 +700,12 @@ export const drawCustomElementCommandsToCanvas = (
         if (command.maxWidth === undefined) {
           context.fillText(command.text, command.x, command.y);
         } else {
-          context.fillText(command.text, command.x, command.y, command.maxWidth);
+          context.fillText(
+            command.text,
+            command.x,
+            command.y,
+            command.maxWidth,
+          );
         }
         break;
       case "image": {
@@ -667,7 +760,8 @@ export const drawCustomElementCommandsToSvg = (
   const root = document.createElementNS(svgNS, "g");
   const stack: SVGGElement[] = [root];
   let clipIndex = 0;
-  const append = (node: SVGElement) => stack[stack.length - 1].appendChild(node);
+  const append = (node: SVGElement) =>
+    stack[stack.length - 1].appendChild(node);
   const setRect = (
     node: SVGElement,
     command: { x: number; y: number; width: number; height: number },

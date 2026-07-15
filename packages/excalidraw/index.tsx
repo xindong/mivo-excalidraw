@@ -419,6 +419,8 @@ export {
   getCustomElementDefinition,
   defineCustomElementAssetStore,
   customElementDefinitionAcceptsFile,
+  measureCustomElementText,
+  ellipsizeCustomElementText,
   CustomElementPainter,
 } from "@excalidraw/element";
 
@@ -427,6 +429,8 @@ export type {
   CustomElementDrawCommand,
   CustomElementDefinition,
   CustomElementData,
+  CustomElementActivation,
+  CustomElementTextStyle,
   CustomElementAssetStore,
   CustomElementFileContext,
   CustomElementImportResult,
