@@ -5,9 +5,9 @@ import {
   duplicateElements,
   fixBindingsAfterDeletion,
   getContainerElement,
-  newCustomElement,
   newElementWith,
   handleBindTextResize,
+  isArrowElement,
   isNonDeletedElement,
   redrawTextBoundingBox,
   Scene,
@@ -30,6 +30,12 @@ import type {
   CanvasSceneOperationResult,
   CanvasSceneSnapshot,
 } from "./types";
+
+type AppliedSceneOperation = Readonly<{
+  elements: readonly OrderedExcalidrawElement[];
+  created: readonly string[];
+  touched: readonly string[];
+}>;
 
 export const applyCanvasSceneOperations = (
   snapshot: CanvasSceneSnapshot,
@@ -58,7 +64,7 @@ const applyCanvasSceneOperationsUnsafe = (
     );
   }
 
-  let elements = [...snapshot.elements];
+  let elements: readonly OrderedExcalidrawElement[] = snapshot.elements;
   let selectedElementIds: Readonly<Record<string, true>> | undefined;
   let focusElementIds: readonly string[] | undefined;
   const createdElementIds = new Set<string>();
@@ -109,7 +115,7 @@ const applySceneOperation = (
   elements: readonly OrderedExcalidrawElement[],
   snapshot: CanvasSceneSnapshot,
   operation: Exclude<CanvasOperation, { type: "viewport" | "extension" }>,
-) => {
+): AppliedSceneOperation => {
   if (operation.type === "create") {
     const created = createElements(operation.items);
     const ids = new Set(elements.map((element) => element.id));
@@ -174,7 +180,7 @@ const applySceneOperation = (
             y: element.y + offsetY,
           })
         : element,
-    );
+    ) as OrderedExcalidrawElement[];
     return {
       elements: next,
       created: [...duplicateIds],
@@ -321,26 +327,30 @@ const createElements = (items: readonly CanvasCreateItem[]) => {
   for (const item of items) {
     validateCreateItem(item);
     if (item.kind === "custom") {
+      const skeleton: ExcalidrawElementSkeleton = {
+        type: "custom",
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        width: finite(item.width, 320),
+        height: finite(item.height, 200),
+        angle: finite(item.angle, 0) as Radians,
+        opacity: finite(item.opacity, 100),
+        locked: item.locked,
+        customData: item.customData,
+        customType: item.customType,
+        rendererId: item.rendererId,
+        schemaVersion: item.schemaVersion,
+        rendererVersion: item.rendererVersion,
+        resource: item.resource,
+        status: item.status,
+        data: item.data,
+        previewFileId: item.previewFileId,
+      };
       elements.push(
-        newCustomElement({
-          id: item.id,
-          x: item.x,
-          y: item.y,
-          width: finite(item.width, 320),
-          height: finite(item.height, 200),
-          angle: finite(item.angle, 0) as Radians,
-          opacity: finite(item.opacity, 100),
-          locked: item.locked,
-          customData: item.customData,
-          customType: item.customType,
-          rendererId: item.rendererId,
-          schemaVersion: item.schemaVersion,
-          rendererVersion: item.rendererVersion,
-          resource: item.resource,
-          status: item.status,
-          data: item.data,
-          previewFileId: item.previewFileId,
-        }) as OrderedExcalidrawElement,
+        ...(convertToExcalidrawElements([skeleton], {
+          regenerateIds: item.id === undefined,
+        }) as OrderedExcalidrawElement[]),
       );
       continue;
     }
@@ -601,24 +611,20 @@ const connectElements = (
   const startY = from.y + from.height / 2;
   const endX = to.x + to.width / 2;
   const endY = to.y + to.height / 2;
+  const connectorSkeleton: ExcalidrawElementSkeleton = {
+    type: "arrow",
+    x: startX,
+    y: startY,
+    points: [pointFrom(0, 0), pointFrom(endX - startX, endY - startY)],
+    endArrowhead: operation.endArrowhead ?? "arrow",
+    strokeColor: operation.strokeColor,
+    strokeWidth: operation.strokeWidth,
+    ...(operation.label ? { label: { text: operation.label } } : {}),
+  };
   const created = convertToExcalidrawElements([
-    {
-      type: "arrow",
-      x: startX,
-      y: startY,
-      points: [
-        [0, 0],
-        [endX - startX, endY - startY],
-      ],
-      startBinding: { elementId: from.id, focus: 0, gap: 8 },
-      endBinding: { elementId: to.id, focus: 0, gap: 8 },
-      endArrowhead: operation.endArrowhead ?? "arrow",
-      strokeColor: operation.strokeColor,
-      strokeWidth: operation.strokeWidth,
-      ...(operation.label ? { label: { text: operation.label } } : {}),
-    },
-  ] as ExcalidrawElementSkeleton[]) as OrderedExcalidrawElement[];
-  const arrow = created.find((element) => element.type === "arrow");
+    connectorSkeleton,
+  ]) as OrderedExcalidrawElement[];
+  const arrow = created.find(isArrowElement);
   if (!arrow) {
     throw invalidCanvasOperation("Canvas connector could not be created");
   }

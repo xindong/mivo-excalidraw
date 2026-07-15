@@ -1,4 +1,5 @@
 import type {
+  Arrowhead,
   CustomElementResource,
   ExcalidrawElement,
   FileId,
@@ -202,7 +203,7 @@ export type CanvasOperation =
       from: string;
       to: string;
       label?: string;
-      endArrowhead?: string;
+      endArrowhead?: Arrowhead;
       strokeColor?: string;
       strokeWidth?: number;
     }>
