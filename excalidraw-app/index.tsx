@@ -8,10 +8,17 @@ import ExcalidrawApp from "./App";
 
 window.__EXCALIDRAW_SHA__ = import.meta.env.VITE_APP_GIT_SHA;
 const rootElement = document.getElementById("root")!;
-const root = createRoot(rootElement);
-registerSW();
-root.render(
-  <StrictMode>
-    <ExcalidrawApp />
-  </StrictMode>,
-);
+
+// The Excalidraw PWA service worker may serve the cached main index for an
+// unknown navigation. Preserve the isolated Canvas lab even in that case.
+if (window.location.pathname.endsWith("/custom-elements.html")) {
+  void import("./dev/customElementsApp");
+} else {
+  const root = createRoot(rootElement);
+  registerSW();
+  root.render(
+    <StrictMode>
+      <ExcalidrawApp />
+    </StrictMode>,
+  );
+}
