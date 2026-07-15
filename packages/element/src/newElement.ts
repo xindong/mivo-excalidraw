@@ -559,7 +559,10 @@ export const newCustomElement = (
   opts: {
     customType: ExcalidrawCustomElement["customType"];
     rendererId: ExcalidrawCustomElement["rendererId"];
+    schemaVersion?: ExcalidrawCustomElement["schemaVersion"];
     rendererVersion?: ExcalidrawCustomElement["rendererVersion"];
+    resource?: ExcalidrawCustomElement["resource"];
+    status?: ExcalidrawCustomElement["status"];
     data?: ExcalidrawCustomElement["data"];
     previewFileId?: ExcalidrawCustomElement["previewFileId"];
   } & ElementConstructorOpts,
@@ -567,7 +570,10 @@ export const newCustomElement = (
   ..._newElementBase<ExcalidrawCustomElement>("custom", opts),
   customType: opts.customType,
   rendererId: opts.rendererId,
+  schemaVersion: opts.schemaVersion ?? opts.rendererVersion ?? 1,
   rendererVersion: opts.rendererVersion ?? 1,
+  resource: opts.resource ?? null,
+  status: opts.status ?? "ready",
   data: opts.data ?? {},
   previewFileId: opts.previewFileId ?? null,
 });

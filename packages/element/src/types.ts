@@ -163,6 +163,17 @@ export type CustomElementValue =
   | readonly CustomElementValue[]
   | { readonly [key: string]: CustomElementValue };
 
+export type CustomElementResource = Readonly<{
+  /** Host-defined stable identifier, path, URL, or storage key. */
+  id: string;
+  /** Optional namespace used by hosts with multiple storage backends. */
+  provider?: string;
+  mimeType?: string;
+  name?: string;
+  size?: number;
+  metadata?: Readonly<Record<string, CustomElementValue>>;
+}>;
+
 /**
  * A host-defined, Canvas-rendered element. The scene stores only portable data
  * and a renderer id; executable renderer code is registered by the host app.
@@ -171,8 +182,14 @@ export type ExcalidrawCustomElement = _ExcalidrawElementBase &
   Readonly<{
     type: "custom";
     customType: string;
+    /** Version of the serializable custom element data contract. */
+    schemaVersion: number;
     rendererId: string;
+    /** @deprecated Prefer `schemaVersion`; kept for scene compatibility. */
     rendererVersion: number;
+    /** Host-managed original resource. Excalidraw never embeds it implicitly. */
+    resource: CustomElementResource | null;
+    status: "pending" | "ready" | "error";
     data: Readonly<Record<string, CustomElementValue>>;
     /** Optional raster preview that a renderer can paint through `image()`. */
     previewFileId: FileId | null;

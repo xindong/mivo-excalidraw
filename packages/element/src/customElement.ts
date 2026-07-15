@@ -1,12 +1,65 @@
 import { THEME } from "@excalidraw/common";
 
 import type {
+  CustomElementResource,
+  CustomElementValue,
   ExcalidrawCustomElement,
   FileId,
   Theme,
 } from "./types";
 
 export type CustomElementImageFit = "fill" | "contain" | "cover";
+
+export type CustomElementData = Readonly<
+  Record<string, CustomElementValue>
+>;
+
+export type TypedExcalidrawCustomElement<
+  TData extends CustomElementData = CustomElementData,
+> = Omit<ExcalidrawCustomElement, "data"> & Readonly<{ data: TData }>;
+
+export type CustomElementAssetStore = Readonly<{
+  put: (
+    file: File | Blob,
+    context: {
+      customType: string;
+      signal: AbortSignal;
+    },
+  ) => Promise<CustomElementResource>;
+  resolve: (
+    resource: CustomElementResource,
+    context: { signal: AbortSignal },
+  ) => Promise<Blob | File | string | null>;
+  exists?: (resource: CustomElementResource) => Promise<boolean>;
+  remove?: (resource: CustomElementResource) => Promise<void>;
+}>;
+
+export const defineCustomElementAssetStore = (
+  store: CustomElementAssetStore,
+) => store;
+
+export type CustomElementPreviewStore = Readonly<{
+  put: (
+    preview: File | Blob,
+    options?: { name?: string },
+  ) => Promise<FileId>;
+}>;
+
+export type CustomElementFileContext = Readonly<{
+  assets: CustomElementAssetStore | null;
+  previews: CustomElementPreviewStore;
+  signal: AbortSignal;
+}>;
+
+export type CustomElementImportResult<
+  TData extends CustomElementData = CustomElementData,
+> = Readonly<{
+  data: TData;
+  resource?: CustomElementResource | null;
+  previewFileId?: FileId | null;
+  width?: number;
+  height?: number;
+}>;
 
 export type CustomElementDrawCommand =
   | {
@@ -211,24 +264,95 @@ export class CustomElementPainter {
   }
 }
 
-export type CustomElementRenderer = Readonly<{
+export type CustomElementRenderer<
+  TData extends CustomElementData = CustomElementData,
+> = Readonly<{
   id: string;
   render: (context: {
-    element: Readonly<ExcalidrawCustomElement>;
+    element: Readonly<TypedExcalidrawCustomElement<TData>>;
     painter: CustomElementPainter;
     theme: Theme;
   }) => void;
 }>;
 
-const rendererRegistry = new Map<string, CustomElementRenderer>();
+export type CustomElementDefinition<
+  TData extends CustomElementData = CustomElementData,
+> = Readonly<{
+  type: string;
+  schemaVersion: number;
+  renderer?: CustomElementRenderer<TData>;
+  rendererId?: string;
+  file?: Readonly<{
+    accept?: readonly string[] | ((file: File) => boolean);
+    import?: (
+      context: CustomElementFileContext & Readonly<{ file: File }>,
+    ) => Promise<CustomElementImportResult<TData>>;
+    createPreview?: (
+      context: CustomElementFileContext &
+        Readonly<{
+          element: TypedExcalidrawCustomElement<TData> | null;
+          resource: CustomElementResource | null;
+          data: TData;
+          file: File | null;
+        }>,
+    ) => Promise<FileId | null>;
+  }>;
+  activate?: (
+    context: Readonly<{
+      element: TypedExcalidrawCustomElement<TData>;
+      assets: CustomElementAssetStore | null;
+      signal: AbortSignal;
+    }>,
+  ) => void | Promise<void>;
+  migrate?: (
+    data: CustomElementData,
+    fromVersion: number,
+  ) => TData;
+}>;
+
+export const defineCustomElement = <TData extends CustomElementData>(
+  definition: CustomElementDefinition<TData>,
+) => definition;
+
+export const customElementDefinitionAcceptsFile = (
+  definition: CustomElementDefinition<any>,
+  file: File,
+) => {
+  const accept = definition.file?.accept;
+  if (!accept) {
+    return true;
+  }
+  if (typeof accept === "function") {
+    return accept(file);
+  }
+  const lowerName = file.name.toLowerCase();
+  return accept.some((candidate) => {
+    const normalized = candidate.trim().toLowerCase();
+    if (normalized.startsWith(".")) {
+      return lowerName.endsWith(normalized);
+    }
+    if (normalized.endsWith("/*")) {
+      return file.type.toLowerCase().startsWith(normalized.slice(0, -1));
+    }
+    return file.type.toLowerCase() === normalized;
+  });
+};
+
+const rendererRegistry = new Map<string, CustomElementRenderer<any>>();
+const definitionRegistry = new Map<
+  string,
+  CustomElementDefinition<any>
+>();
 let rendererRegistryRevision = 0;
 
 export const getCustomElementRendererRevision = () => rendererRegistryRevision;
 
-export const registerCustomElementRenderer = (
-  renderer: CustomElementRenderer,
+export const registerCustomElementRenderer = <
+  TData extends CustomElementData,
+>(
+  renderer: CustomElementRenderer<TData>,
 ) => {
-  rendererRegistry.set(renderer.id, renderer);
+  rendererRegistry.set(renderer.id, renderer as CustomElementRenderer<any>);
   rendererRegistryRevision++;
   return () => {
     if (rendererRegistry.get(renderer.id) === renderer) {
@@ -245,6 +369,59 @@ export const unregisterCustomElementRenderer = (rendererId: string) => {
 
 export const getCustomElementRenderer = (rendererId: string) =>
   rendererRegistry.get(rendererId) ?? null;
+
+export const getCustomElementDefinition = (customType: string) =>
+  definitionRegistry.get(customType) ?? null;
+
+export const unregisterCustomElement = (customType: string) => {
+  const definition = definitionRegistry.get(customType);
+  if (!definition) {
+    return;
+  }
+  definitionRegistry.delete(customType);
+  if (
+    definition.renderer &&
+    rendererRegistry.get(definition.renderer.id) === definition.renderer
+  ) {
+    unregisterCustomElementRenderer(definition.renderer.id);
+  }
+};
+
+export const registerCustomElement = <TData extends CustomElementData>(
+  definition: CustomElementDefinition<TData>,
+) => {
+  if (!definition.type) {
+    throw new Error("Custom element definition requires a non-empty type");
+  }
+  if (
+    !Number.isInteger(definition.schemaVersion) ||
+    definition.schemaVersion < 1
+  ) {
+    throw new Error("Custom element schemaVersion must be a positive integer");
+  }
+
+  const previousDefinition = definitionRegistry.get(definition.type);
+  if (
+    previousDefinition?.renderer &&
+    rendererRegistry.get(previousDefinition.renderer.id) ===
+      previousDefinition.renderer
+  ) {
+    unregisterCustomElementRenderer(previousDefinition.renderer.id);
+  }
+  definitionRegistry.set(definition.type, definition);
+  const unregisterRenderer = definition.renderer
+    ? registerCustomElementRenderer(definition.renderer)
+    : null;
+
+  return () => {
+    if (definitionRegistry.get(definition.type) === definition) {
+      definitionRegistry.delete(definition.type);
+    }
+    unregisterRenderer?.();
+  };
+};
+
+export const registerCustomElementType = registerCustomElement;
 
 const renderFallback = (
   painter: CustomElementPainter,

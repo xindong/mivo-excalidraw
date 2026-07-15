@@ -31,6 +31,7 @@ import {
   isValidPolygon,
   projectFixedPointOntoDiagonal,
   isNonDeletedElement,
+  getCustomElementDefinition,
 } from "@excalidraw/element";
 import { normalizeFixedPoint } from "@excalidraw/element";
 import {
@@ -574,19 +575,54 @@ export const restoreElement = (
         scale: element.scale || [1, 1],
         crop: element.crop ?? null,
       });
-    case "custom":
+    case "custom": {
+      const definition = getCustomElementDefinition(
+        element.customType || "custom",
+      );
+      const sourceVersion =
+        element.schemaVersion ?? element.rendererVersion ?? 1;
+      let data =
+        element.data &&
+        typeof element.data === "object" &&
+        !Array.isArray(element.data)
+          ? element.data
+          : {};
+      let schemaVersion = sourceVersion;
+      if (
+        definition?.migrate &&
+        sourceVersion < definition.schemaVersion
+      ) {
+        try {
+          data = definition.migrate(data, sourceVersion);
+          schemaVersion = definition.schemaVersion;
+        } catch (error) {
+          console.error(
+            `Failed to migrate custom element \"${element.customType}\"`,
+            error,
+          );
+        }
+      }
       return restoreElementWithProperties(element, {
         customType: element.customType || "custom",
-        rendererId: element.rendererId || element.customType || "custom",
+        rendererId:
+          element.rendererId ||
+          definition?.renderer?.id ||
+          definition?.rendererId ||
+          element.customType ||
+          "custom",
+        schemaVersion,
         rendererVersion: element.rendererVersion ?? 1,
-        data:
-          element.data &&
-          typeof element.data === "object" &&
-          !Array.isArray(element.data)
-            ? element.data
-            : {},
+        resource:
+          element.resource &&
+          typeof element.resource === "object" &&
+          typeof element.resource.id === "string"
+            ? element.resource
+            : null,
+        status: element.status ?? "ready",
+        data,
         previewFileId: element.previewFileId ?? null,
       });
+    }
     case "line":
     // @ts-ignore LEGACY type
     // eslint-disable-next-line no-fallthrough

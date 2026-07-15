@@ -132,6 +132,7 @@ import {
   newArrowElement,
   newElement,
   newImageElement,
+  newCustomElement,
   newLinearElement,
   newTextElement,
   refreshTextDimensions,
@@ -259,6 +260,8 @@ import {
   isEligibleFrameChildType,
   getBindingStrategyForDraggingBindingElementEndpoints,
   isNonDeletedElement,
+  getCustomElementDefinition,
+  customElementDefinitionAcceptsFile,
 } from "@excalidraw/element";
 
 import type { GlobalPoint, LocalPoint, Radians } from "@excalidraw/math";
@@ -289,6 +292,7 @@ import type {
   SceneElementsMap,
   NonDeletedSceneElementsMap,
   ExcalidrawBindableElement,
+  ExcalidrawCustomElement,
 } from "@excalidraw/element/types";
 
 import type { Mutable, ValueOf } from "@excalidraw/common/utility-types";
@@ -795,6 +799,9 @@ class App extends React.Component<AppProps, AppState> {
       mutateElement: this.mutateElement,
       updateLibrary: this.library.updateLibrary,
       addFiles: this.addFiles,
+      insertCustomElementFromFile: this.insertCustomElementFromFile,
+      refreshCustomElementPreview: this.refreshCustomElementPreview,
+      activateCustomElement: this.activateCustomElement,
       resetScene: this.resetScene,
       getSceneElementsIncludingDeleted: this.getSceneElementsIncludingDeleted,
       getSceneElementsMapIncludingDeleted:
@@ -5130,6 +5137,184 @@ class App extends React.Component<AppProps, AppState> {
     },
   );
 
+  private createCustomElementPreviewStore = () => ({
+    put: async (preview: File | Blob, options?: { name?: string }) => {
+      const previewFile =
+        preview instanceof File
+          ? preview
+          : new File([preview], options?.name || "custom-preview", {
+              type: preview.type,
+            });
+      if (
+        !Object.values(IMAGE_MIME_TYPES).includes(
+          previewFile.type as ValueOf<typeof IMAGE_MIME_TYPES>,
+        )
+      ) {
+        throw new Error(
+          `Custom element preview must be an image, received \"${
+            previewFile.type || "unknown"
+          }\"`,
+        );
+      }
+
+      const fileId = await (this.props.generateIdForFile
+        ? this.props.generateIdForFile(previewFile)
+        : generateIdFromFile(previewFile));
+      if (!fileId) {
+        throw new Error("Could not generate a custom element preview file id");
+      }
+      const brandedFileId = fileId as FileId;
+      this.addFiles([
+        {
+          id: brandedFileId,
+          mimeType: previewFile.type as ValueOf<typeof IMAGE_MIME_TYPES>,
+          dataURL: await getDataURL(previewFile),
+          created: Date.now(),
+          lastRetrieved: Date.now(),
+        },
+      ]);
+      return brandedFileId;
+    },
+  });
+
+  public insertCustomElementFromFile: ExcalidrawImperativeAPI["insertCustomElementFromFile"] =
+    async (options) => {
+      const definition = getCustomElementDefinition(options.customType);
+      if (!definition) {
+        throw new Error(
+          `No custom element definition registered for \"${options.customType}\"`,
+        );
+      }
+      if (!definition.file?.import) {
+        throw new Error(
+          `Custom element \"${options.customType}\" does not support file import`,
+        );
+      }
+      if (!customElementDefinitionAcceptsFile(definition, options.file)) {
+        throw new Error(
+          `File \"${options.file.name}\" is not accepted by custom element \"${options.customType}\"`,
+        );
+      }
+
+      const signal = options.signal ?? new AbortController().signal;
+      signal.throwIfAborted();
+      const result = await definition.file.import({
+        file: options.file,
+        assets: this.props.customElementAssets ?? null,
+        previews: this.createCustomElementPreviewStore(),
+        signal,
+      });
+      signal.throwIfAborted();
+      const previewFileId =
+        result.previewFileId !== undefined
+          ? result.previewFileId
+          : definition.file.createPreview
+          ? await definition.file.createPreview({
+              element: null,
+              resource: result.resource ?? null,
+              data: result.data,
+              file: options.file,
+              assets: this.props.customElementAssets ?? null,
+              previews: this.createCustomElementPreviewStore(),
+              signal,
+            })
+          : null;
+      signal.throwIfAborted();
+
+      const width = options.width ?? result.width ?? 320;
+      const height = options.height ?? result.height ?? 200;
+      const zoom = this.state.zoom.value;
+      const x =
+        options.x ??
+        -this.state.scrollX + this.state.width / zoom / 2 - width / 2;
+      const y =
+        options.y ??
+        -this.state.scrollY + this.state.height / zoom / 2 - height / 2;
+      const element = newCustomElement({
+        x,
+        y,
+        width,
+        height,
+        customType: definition.type,
+        schemaVersion: definition.schemaVersion,
+        rendererId:
+          definition.renderer?.id ?? definition.rendererId ?? definition.type,
+        rendererVersion: definition.schemaVersion,
+        resource: result.resource ?? null,
+        previewFileId,
+        status: "ready",
+        data: result.data,
+      });
+
+      this.updateScene({
+        elements: [...this.scene.getElementsIncludingDeleted(), element],
+        appState:
+          options.select === false
+            ? null
+            : { selectedElementIds: { [element.id]: true } },
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      return element;
+    };
+
+  public refreshCustomElementPreview: ExcalidrawImperativeAPI["refreshCustomElementPreview"] =
+    async (elementId, options) => {
+      const element = this.scene.getElement(elementId);
+      if (!element || element.isDeleted || !isCustomElement(element)) {
+        throw new Error(`Custom element \"${elementId}\" was not found`);
+      }
+      const definition = getCustomElementDefinition(element.customType);
+      if (!definition?.file?.createPreview) {
+        throw new Error(
+          `Custom element \"${element.customType}\" does not support preview refresh`,
+        );
+      }
+
+      const signal = options?.signal ?? new AbortController().signal;
+      const previewFileId = await definition.file.createPreview({
+        element,
+        resource: element.resource,
+        data: element.data,
+        file: null,
+        assets: this.props.customElementAssets ?? null,
+        previews: this.createCustomElementPreviewStore(),
+        signal,
+      });
+      signal.throwIfAborted();
+      const updatedElement = newElementWith(element, {
+        previewFileId,
+        status: "ready",
+      });
+      this.updateScene({
+        elements: this.scene
+          .getElementsIncludingDeleted()
+          .map((candidate) =>
+            candidate.id === element.id ? updatedElement : candidate,
+          ),
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      return updatedElement;
+    };
+
+  public activateCustomElement: ExcalidrawImperativeAPI["activateCustomElement"] =
+    async (elementId, options) => {
+      const element = this.scene.getElement(elementId);
+      if (!element || element.isDeleted || !isCustomElement(element)) {
+        throw new Error(`Custom element \"${elementId}\" was not found`);
+      }
+      const definition = getCustomElementDefinition(element.customType);
+      if (!definition?.activate) {
+        return;
+      }
+      const signal = options?.signal ?? new AbortController().signal;
+      signal.throwIfAborted();
+      await definition.activate({
+        element,
+        assets: this.props.customElementAssets ?? null,
+        signal,
+      });
+    };
+
   private addMissingFiles = (
     files: BinaryFiles | BinaryFileData[],
     replace = false,
@@ -7194,6 +7379,23 @@ class App extends React.Component<AppProps, AppState> {
 
     if (selectedElements.length === 1 && isImageElement(selectedElements[0])) {
       this.startImageCropping(selectedElements[0]);
+      return;
+    }
+
+    const hitCustomElement =
+      selectedElements.length === 1 && isCustomElement(selectedElements[0])
+        ? selectedElements[0]
+        : this.getElementAtPosition(sceneX, sceneY);
+    if (isCustomElement(hitCustomElement)) {
+      void this.activateCustomElement(hitCustomElement.id).catch((error) => {
+        console.error(error);
+        this.setToast({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to activate custom element",
+        });
+      });
       return;
     }
 

@@ -225,6 +225,12 @@ export class API {
     rendererVersion?: T extends "custom"
       ? ExcalidrawCustomElement["rendererVersion"]
       : never;
+    schemaVersion?: T extends "custom"
+      ? ExcalidrawCustomElement["schemaVersion"]
+      : never;
+    resource?: T extends "custom"
+      ? ExcalidrawCustomElement["resource"]
+      : never;
     data?: T extends "custom" ? ExcalidrawCustomElement["data"] : never;
     previewFileId?: T extends "custom"
       ? ExcalidrawCustomElement["previewFileId"]
@@ -393,7 +399,9 @@ export class API {
           height,
           customType: rest.customType ?? "custom",
           rendererId: rest.rendererId ?? "custom",
+          schemaVersion: rest.schemaVersion,
           rendererVersion: rest.rendererVersion,
+          resource: rest.resource,
           data: rest.data,
           previewFileId: rest.previewFileId,
         });

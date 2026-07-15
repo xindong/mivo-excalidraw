@@ -34,6 +34,7 @@ import type {
   ExcalidrawNonSelectionElement,
   BindMode,
   ExcalidrawTextElement,
+  ExcalidrawCustomElement,
   StrokeVariability,
 } from "@excalidraw/element/types";
 
@@ -46,6 +47,7 @@ import type {
 
 import type {
   CaptureUpdateActionType,
+  CustomElementAssetStore,
   DurableIncrement,
   EphemeralIncrement,
 } from "@excalidraw/element";
@@ -689,6 +691,21 @@ export type InteractionConfig = {
   };
 };
 
+export type InsertCustomElementFromFileOptions = Readonly<{
+  customType: string;
+  file: File;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  select?: boolean;
+  signal?: AbortSignal;
+}>;
+
+export type CustomElementOperationOptions = Readonly<{
+  signal?: AbortSignal;
+}>;
+
 export interface ExcalidrawProps {
   onChange?: (
     elements: readonly OrderedExcalidrawElement[],
@@ -811,6 +828,11 @@ export interface ExcalidrawProps {
   onLibraryChange?: (libraryItems: LibraryItems) => void | Promise<any>;
   autoFocus?: boolean;
   generateIdForFile?: (file: File) => string | Promise<string>;
+  /**
+   * Host-owned persistence and resolution for original custom-element files.
+   * Preview images remain managed by Excalidraw BinaryFiles.
+   */
+  customElementAssets?: CustomElementAssetStore;
   generateLinkForSelection?: (id: string, type: "element" | "group") => string;
   onLinkOpen?: (
     element: NonDeletedExcalidrawElement,
@@ -1133,6 +1155,17 @@ export interface ExcalidrawImperativeAPI {
   refresh: InstanceType<typeof App>["refresh"];
   setToast: InstanceType<typeof App>["setToast"];
   addFiles: (data: BinaryFileData[]) => void;
+  insertCustomElementFromFile: (
+    options: InsertCustomElementFromFileOptions,
+  ) => Promise<NonDeleted<ExcalidrawCustomElement>>;
+  refreshCustomElementPreview: (
+    elementId: ExcalidrawCustomElement["id"],
+    options?: CustomElementOperationOptions,
+  ) => Promise<NonDeleted<ExcalidrawCustomElement>>;
+  activateCustomElement: (
+    elementId: ExcalidrawCustomElement["id"],
+    options?: CustomElementOperationOptions,
+  ) => Promise<void>;
   id: string;
   setActiveTool: InstanceType<typeof App>["setActiveTool"];
   setCursor: InstanceType<typeof App>["setCursor"];

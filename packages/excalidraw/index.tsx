@@ -28,6 +28,7 @@ import {
   useAppStateValue as _useAppStateValue,
   useOnAppStateChange as _useOnAppStateChange,
 } from "./hooks/useAppStateValue";
+export { useRegisterCustomElement } from "./hooks/useCustomElement";
 import { EditorJotaiProvider, editorJotaiStore } from "./editor-jotai";
 import polyfill from "./polyfill";
 
@@ -96,6 +97,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onLibraryChange,
     autoFocus = false,
     generateIdForFile,
+    customElementAssets,
     onLinkOpen,
     generateLinkForSelection,
     onPointerDown,
@@ -232,6 +234,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onLibraryChange={onLibraryChange}
           autoFocus={autoFocus}
           generateIdForFile={generateIdForFile}
+          customElementAssets={customElementAssets}
           onLinkOpen={onLinkOpen}
           generateLinkForSelection={generateLinkForSelection}
           onPointerDown={onPointerDown}
@@ -409,16 +412,31 @@ export {
   registerCustomElementRenderer,
   unregisterCustomElementRenderer,
   getCustomElementRenderer,
+  defineCustomElement,
+  registerCustomElement,
+  registerCustomElementType,
+  unregisterCustomElement,
+  getCustomElementDefinition,
+  defineCustomElementAssetStore,
+  customElementDefinitionAcceptsFile,
   CustomElementPainter,
 } from "@excalidraw/element";
 
 export type {
   CustomElementRenderer,
   CustomElementDrawCommand,
+  CustomElementDefinition,
+  CustomElementData,
+  CustomElementAssetStore,
+  CustomElementFileContext,
+  CustomElementImportResult,
+  CustomElementPreviewStore,
+  TypedExcalidrawCustomElement,
 } from "@excalidraw/element";
 export type {
   ExcalidrawCustomElement,
   CustomElementValue,
+  CustomElementResource,
 } from "@excalidraw/element/types";
 
 export { CaptureUpdateAction } from "@excalidraw/element";

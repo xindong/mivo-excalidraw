@@ -1,15 +1,52 @@
 import {
+  defineCustomElement,
+  defineCustomElementAssetStore,
   newCustomElement,
+  registerCustomElement,
   registerCustomElementRenderer,
 } from "@excalidraw/excalidraw";
 import { MIME_TYPES, THEME } from "@excalidraw/common";
 
 import type { DataURL } from "@excalidraw/excalidraw/types";
-import type { FileId } from "@excalidraw/element/types";
+import type { CustomElementValue, FileId } from "@excalidraw/element/types";
 
 const MEDIA_RENDERER_ID = "mivo.dev.media-card";
 const STATUS_RENDERER_ID = "mivo.dev.status-card";
 const PREVIEW_FILE_ID = "mivo-custom-element-preview" as FileId;
+const originalFiles = new Map<string, File | Blob>();
+
+export const customElementDevAssetStore = defineCustomElementAssetStore({
+  async put(file, { customType }) {
+    const id = `${customType}/${crypto.randomUUID()}-${
+      file instanceof File ? file.name : "resource"
+    }`;
+    originalFiles.set(id, file);
+    return {
+      provider: "dev-memory",
+      id,
+      mimeType: file.type,
+      name: file instanceof File ? file.name : undefined,
+      size: file.size,
+    };
+  },
+  async resolve(resource) {
+    return originalFiles.get(resource.id) ?? null;
+  },
+  async exists(resource) {
+    return originalFiles.has(resource.id);
+  },
+  async remove(resource) {
+    originalFiles.delete(resource.id);
+  },
+});
+
+type DevMediaData = Readonly<
+  Record<string, CustomElementValue> & {
+    name: string;
+    duration: number;
+    devFixture: boolean;
+  }
+>;
 
 const previewSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
@@ -33,9 +70,56 @@ const previewDataURL = `data:image/svg+xml;base64,${window.btoa(
 )}` as DataURL;
 
 export const registerCustomElementDevRenderers = () => {
-  const unregisterMedia = registerCustomElementRenderer({
-    id: MEDIA_RENDERER_ID,
-    render: ({ element, painter, theme }) => {
+  const unregisterMedia = registerCustomElement(
+    defineCustomElement<DevMediaData>({
+      type: "dev.media",
+      schemaVersion: 1,
+      file: {
+        accept: ["image/*"],
+        async import({ file, assets, signal }) {
+          if (!assets) {
+            throw new Error("This custom element requires an AssetStore");
+          }
+          const resource = await assets.put(file, {
+            customType: "dev.media",
+            signal,
+          });
+          return {
+            resource,
+            width: 480,
+            height: 300,
+            data: {
+              name: file.name,
+              duration: 8,
+              devFixture: true,
+            },
+          };
+        },
+        async createPreview({ resource, assets, previews, signal, file }) {
+          if (!resource || !assets) {
+            return null;
+          }
+          const original =
+            file ?? (await assets.resolve(resource, { signal }));
+          return original instanceof Blob
+            ? previews.put(original, { name: resource.name })
+            : null;
+        },
+      },
+      async activate({ element, assets, signal }) {
+        const original =
+          element.resource && assets
+            ? await assets.resolve(element.resource, { signal })
+            : null;
+        window.alert(
+          original
+            ? `已通过 AssetStore 找到原始文件：${element.resource?.id}`
+            : "该静态测试卡片没有绑定原始文件",
+        );
+      },
+      renderer: {
+        id: MEDIA_RENDERER_ID,
+        render: ({ element, painter, theme }) => {
       const dark = theme === THEME.DARK;
       const footerHeight = Math.max(54, element.height * 0.16);
       const previewHeight = element.height - footerHeight;
@@ -88,8 +172,10 @@ export const registerCustomElementDevRenderers = () => {
         align: "center",
         baseline: "middle",
       });
-    },
-  });
+        },
+      },
+    }),
+  );
 
   const unregisterStatus = registerCustomElementRenderer({
     id: STATUS_RENDERER_ID,
@@ -151,11 +237,13 @@ export const createCustomElementDevElements = () => {
     y: 100,
     width: 480,
     height: 300,
-    customType: "mivo.media",
+    customType: "dev.media",
+    schemaVersion: 1,
     rendererId: MEDIA_RENDERER_ID,
     previewFileId: PREVIEW_FILE_ID,
     data: {
       name: "机器人与动力装甲 · 视频节点",
+      duration: 8,
       devFixture: true,
     },
   });
