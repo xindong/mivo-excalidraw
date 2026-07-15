@@ -1181,6 +1181,8 @@ export interface ExcalidrawImperativeAPI {
   getSceneElementsMapIncludingDeleted: InstanceType<
     typeof App
   >["getSceneElementsMapIncludingDeleted"];
+  /** Opaque O(1) token that changes whenever the live scene mutates. */
+  getSceneRevision: () => number;
   history: {
     clear: InstanceType<typeof App>["resetHistory"];
   };

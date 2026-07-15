@@ -821,6 +821,7 @@ class App extends React.Component<AppProps, AppState> {
       getSceneElementsIncludingDeleted: this.getSceneElementsIncludingDeleted,
       getSceneElementsMapIncludingDeleted:
         this.getSceneElementsMapIncludingDeleted,
+      getSceneRevision: () => this.scene.getSceneNonce() ?? 0,
       history: {
         clear: this.resetHistory,
       },

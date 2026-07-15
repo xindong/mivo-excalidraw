@@ -472,6 +472,8 @@ export type {
   CustomElementOverlayStateUpdater,
 } from "./types";
 
+export * from "./canvas";
+
 export { CaptureUpdateAction } from "@excalidraw/element";
 
 export { parseLibraryTokensFromUrl, useHandleLibrary } from "./data/library";
