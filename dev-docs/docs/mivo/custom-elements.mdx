@@ -1,0 +1,138 @@
+# Mivo Custom Elements
+
+Mivo Custom Elements add host-defined, Canvas-rendered nodes with optional DOM overlays and host-owned original resources.
+
+## Define an extension
+
+```tsx
+import {
+  defineCustomElement,
+  defineCustomElementExtension,
+  registerCustomElementExtension,
+} from "@miragari/mivo-excalidraw";
+
+const definition = defineCustomElement({
+  type: "example.asset",
+  schemaVersion: 1,
+  renderer: {
+    id: "example.asset.card",
+    cache: { mode: "source", maxScale: 4 },
+    render: ({ element, painter, viewBox }) => {
+      painter.rect(0, 0, viewBox.width, viewBox.height, {
+        fill: "#fff",
+      });
+      painter.text(String(element.data.name ?? "Asset"), 16, 24);
+    },
+  },
+});
+
+const extension = defineCustomElementExtension({
+  definition,
+  overlays: [
+    {
+      id: "controls",
+      kind: "panel",
+      visibility: "selected",
+      placement: "bottom",
+      render: ({ element }) => <button>{element.data.name}</button>,
+    },
+  ],
+});
+
+const unregister = registerCustomElementExtension(extension);
+```
+
+React applications may call `useRegisterCustomElement(extension)` instead.
+
+## Original resources and previews
+
+Original resources are not stored in scene JSON or `BinaryFiles`. The host provides a `CustomElementAssetStore` to `Excalidraw`:
+
+```tsx
+<Excalidraw customElementAssets={assetStore} />
+```
+
+File import stores the original with `assets.put()` and returns the resulting resource reference. `createPreview()` may return a File/Blob directly; the core stores and decodes it.
+
+```ts
+file: {
+  accept: ["application/octet-stream"],
+  async import({ file, assets, signal }) {
+    if (!assets) throw new Error("AssetStore is required");
+    return {
+      resource: await assets.put(file, {
+        customType: "example.asset",
+        signal,
+      }),
+      data: { name: file.name },
+    };
+  },
+  async createPreview({ resource, assets, signal }) {
+    if (!resource || !assets) return null;
+    const original = await assets.resolve(resource, { signal });
+    return original instanceof Blob ? createPreviewBlob(original) : null;
+  },
+}
+```
+
+Preview output meanings are part of the public contract:
+
+| Result                   | Meaning                          |
+| ------------------------ | -------------------------------- |
+| `FileId`, `File`, `Blob` | Replace after storage and decode |
+| `{ type: "clear" }`      | Remove the preview               |
+| `null`                   | Keep the existing preview        |
+
+`refreshCustomElementPreview()` returns `applied`, `superseded`, or `unchanged`. Caller aborts still reject with `AbortError`.
+
+## Overlay state and presence
+
+Overlays may share state by declaring the same `stateScope`:
+
+```tsx
+{
+  id: "interactive-surface",
+  kind: "surface",
+  visibility: "active",
+  stateScope: "asset-session",
+  transition: { enterMs: 160, exitMs: 160, easing: "ease-out" },
+  interaction: { pointer: "canvas", wheel: "canvas" },
+  render: ({ state, patchState, presence }) => null,
+}
+```
+
+The controller and render context provide `open`, `close`, `toggle`, `setState`, `patchState`, and `closeAfter`. `closeAfter` is generation-aware: reopening an overlay makes an older delayed close stale.
+
+Overlay state is transient. To persist a value in the scene:
+
+```ts
+await api.updateCustomElementData(element.id, (data) => ({
+  ...data,
+  progress: 12.5,
+}));
+```
+
+## Resource hook
+
+```tsx
+import { useCustomElementResource } from "@miragari/mivo-excalidraw/custom-elements/react";
+
+const resolved = useCustomElementResource(element.resource, assets);
+```
+
+The result includes `status`, `value`, `url`, and `error`. Blob and File resources receive a managed Object URL; URL strings are returned unchanged.
+
+## Batch import
+
+```ts
+const elements = await api.insertCustomElementsFromFiles({
+  customType: "example.asset",
+  files,
+  select: true,
+  layout: (items, { viewport }) => positions,
+});
+```
+
+All files are imported before one scene/history update. A failure inserts no nodes, removes staged Preview files, and best-effort removes original resources when `AssetStore.remove()` exists.
+
+Atomicity applies to this single `customType` call. A host combining multiple Custom types must define its own cross-call transaction policy.

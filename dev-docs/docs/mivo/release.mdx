@@ -1,0 +1,50 @@
+# Mivo Excalidraw Release
+
+Mivo packages are published under `@miragari` with the `mivo` dist-tag.
+
+## Version convention
+
+`0.18.1-mivo.1` means the Mivo prerelease line derived from the post-0.18.0 upstream baseline recorded in `MIVO_FORK.md`. Every release must record the exact upstream and fork commits; the numeric prefix alone is not the baseline.
+
+## Release gate
+
+1. Worktree is clean and the release commit is pushed.
+2. `MIVO_FORK.md` baseline and API inventory are current.
+3. `packages/excalidraw/CHANGELOG.md` contains the version.
+4. Focused Custom Element, Overlay runtime, Canvas Core, and capability tests pass.
+5. Package build and declaration generation pass.
+6. Staged exports all resolve to files.
+7. `npm pack --dry-run` passes for every staged package.
+8. The staged Excalidraw tarball installs in a minimal React host and these imports resolve:
+
+```ts
+import { Excalidraw } from "@miragari/mivo-excalidraw";
+import { createCanvasController } from "@miragari/mivo-excalidraw/canvas";
+import { useCustomElementResource } from "@miragari/mivo-excalidraw/custom-elements/react";
+import "@miragari/mivo-excalidraw/index.css";
+```
+
+## Commands
+
+Stage without publishing:
+
+```bash
+npm run release:mivo -- --version=0.18.1-mivo.1
+```
+
+Publish after inspecting `.mivo-release/`:
+
+```bash
+npm run release:mivo -- --version=0.18.1-mivo.1 --publish
+```
+
+The script publishes the workspace dependency packages first and `@miragari/mivo-excalidraw` last, all with `--tag mivo`.
+
+After publication, tag the exact release commit:
+
+```bash
+git tag v0.18.1-mivo.1
+git push origin v0.18.1-mivo.1
+```
+
+Do not publish from a dirty worktree or reuse an npm version.

@@ -1,0 +1,87 @@
+# Mivo Canvas Core SDK
+
+Canvas Core is the stable, UI-independent command layer for host applications, agents, and MCP tools.
+
+```ts
+import {
+  createCanvasController,
+  getCanvasCapabilities,
+} from "@miragari/mivo-excalidraw/canvas";
+
+const controller = createCanvasController(excalidrawAPI);
+const scene = await controller.inspect({
+  filter: { types: ["custom", "text"] },
+  fields: ["position", "size", "text", "custom"],
+});
+
+await controller.apply({
+  operations: [
+    {
+      type: "patch",
+      elementId: scene.elements[0].id,
+      patch: { x: 100, y: 80 },
+    },
+  ],
+});
+```
+
+## Protocol
+
+`CANVAS_CORE_PROTOCOL_VERSION` identifies the command protocol. Consumers should read `getCanvasCapabilities()` instead of assuming every command or extension is available.
+
+The built-in operations cover:
+
+- create
+- patch
+- transform
+- duplicate/delete
+- group/ungroup
+- connect
+- align/distribute/stack/grid
+- arrange
+- viewport selection/focus
+- namespaced extension commands
+
+Inspect supports ids, types, keyword search, selection, lock state, groups, frames, bounds, pagination, and field projection.
+
+## Agent and MCP mapping
+
+An MCP server should keep one `CanvasController` per editor instance and expose small tools that translate validated input into `inspect()` or `apply()` calls. Do not expose raw element mutation.
+
+Recommended tool split:
+
+- `canvas_inspect`
+- `canvas_create`
+- `canvas_patch`
+- `canvas_transform`
+- `canvas_layout`
+- `canvas_connect`
+- `canvas_delete`
+- `canvas_viewport`
+
+Return `CanvasError` codes and details to the agent. Use scene revision values to detect stale multi-step reasoning and re-inspect before retrying.
+
+Custom application commands belong in a namespaced controller extension. Pass the extension to the controller when the editor instance is created:
+
+```ts
+const assetExtension = defineCanvasControllerExtension<
+  "refresh",
+  { elementId: string },
+  { refreshed: string | null }
+>({
+  namespace: "mivo.assets",
+  execute: async ({ operation, inspect, commit }) => {
+    const before = inspect({ filter: { ids: [operation.payload.elementId] } });
+    return commit(() => {
+      // Resolve the host asset, then update through the imperative API.
+      return { refreshed: before.elements[0]?.id ?? null };
+    });
+  },
+});
+
+const controller = createCanvasController(excalidrawAPI, {
+  extensions: [assetExtension],
+});
+```
+
+Extensions should preserve the same atomic update and structured-error rules as built-in operations.

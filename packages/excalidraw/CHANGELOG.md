@@ -13,6 +13,23 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.1
+
+### Mivo fork features
+
+- Added native, Canvas-rendered Custom Elements with viewBox-aware rendering, cache strategies, hit testing, resize, clipboard, restore, serialization, and SVG export support.
+- Added the Custom Element Extension v1 API with node lifecycle callbacks.
+- Added the editor-owned Overlay Layer with surface/panel/popover placement, Presence transitions, input routing, shared state scopes, and generation-aware asynchronous closing.
+- Added host-owned original resource storage, latest-wins Preview refresh, atomic Preview cache replacement, Custom Data updates, and atomic batch file import with rollback.
+- Added the React `useCustomElementResource` subpath.
+- Added the Canvas Core inspect/apply/controller SDK for application, agent, and MCP integrations.
+- Added host capability controls and an isolated image/video Custom Element development fixture on port 9901.
+
+### Package
+
+- Published the fork package family under `@miragari/mivo-*` using the `mivo` dist-tag.
+- Added `@miragari/mivo-excalidraw/canvas` and `@miragari/mivo-excalidraw/custom-elements/react` package exports.
+
 ## Excalidraw API
 
 ### Interaction and UI control (2026-07-05) [#11605](https://github.com/excalidraw/excalidraw/pull/11605)

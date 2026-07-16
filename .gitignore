@@ -28,3 +28,4 @@ html
 meta*.json
 .claude
 .mivo-release
+.playwright-cli
