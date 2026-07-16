@@ -5,31 +5,39 @@ import {
   type CustomElementData,
   type CustomElementDefinition,
 } from "@excalidraw/element";
+import type { CustomElementValue } from "@excalidraw/element/types";
 
 import {
   registerCustomElementOverlays,
-  registerCustomElementWithOverlays,
+  registerCustomElementExtension,
 } from "../customElementOverlay/registry";
 
 import type {
+  CustomElementExtension,
   CustomElementOverlayDefinition,
-  CustomElementWithOverlays,
 } from "../customElementOverlay/types";
 
-export function useRegisterCustomElement<TData extends CustomElementData>(
-  definition: CustomElementDefinition<TData>,
-): void;
-export function useRegisterCustomElement<TData extends CustomElementData>(
-  extension: CustomElementWithOverlays<TData>,
-): void;
+export function useRegisterCustomElement<
+  TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+>(definition: CustomElementDefinition<TData, TPreviewRequest>): void;
+export function useRegisterCustomElement<
+  TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+>(extension: CustomElementExtension<TData, TPreviewRequest>): void;
 /** React lifecycle wrapper for the core definition and optional DOM overlays. */
-export function useRegisterCustomElement<TData extends CustomElementData>(
-  input: CustomElementDefinition<TData> | CustomElementWithOverlays<TData>,
+export function useRegisterCustomElement<
+  TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+>(
+  input:
+    | CustomElementDefinition<TData, TPreviewRequest>
+    | CustomElementExtension<TData, TPreviewRequest>,
 ) {
   useEffect(
     () =>
       "definition" in input
-        ? registerCustomElementWithOverlays(input)
+        ? registerCustomElementExtension(input)
         : registerCustomElement(input),
     [input],
   );

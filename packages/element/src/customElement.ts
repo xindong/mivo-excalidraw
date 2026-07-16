@@ -24,6 +24,11 @@ export type CustomElementTextStyle = Readonly<{
 
 export type CustomElementData = Readonly<Record<string, CustomElementValue>>;
 
+export type CustomElementCacheStrategy =
+  | Readonly<{ mode: "zoom" }>
+  | Readonly<{ mode: "fixed"; scale: number }>
+  | Readonly<{ mode: "source"; maxScale?: number }>;
+
 export type TypedExcalidrawCustomElement<
   TData extends CustomElementData = CustomElementData,
 > = Omit<ExcalidrawCustomElement, "data"> & Readonly<{ data: TData }>;
@@ -51,6 +56,20 @@ export type CustomElementPreviewStore = Readonly<{
   put: (preview: File | Blob, options?: { name?: string }) => Promise<FileId>;
 }>;
 
+export type CustomElementPreviewRequest<
+  TData extends CustomElementValue = CustomElementValue,
+> = Readonly<{
+  reason?: string;
+  data?: TData;
+}>;
+
+export type CustomElementPreviewOutput =
+  | FileId
+  | File
+  | Blob
+  | Readonly<{ type: "clear" }>
+  | null;
+
 export type CustomElementFileContext = Readonly<{
   assets: CustomElementAssetStore | null;
   previews: CustomElementPreviewStore;
@@ -62,7 +81,7 @@ export type CustomElementImportResult<
 > = Readonly<{
   data: TData;
   resource?: CustomElementResource | null;
-  previewFileId?: FileId | null;
+  preview?: Exclude<CustomElementPreviewOutput, Readonly<{ type: "clear" }>>;
   width?: number;
   height?: number;
 }>;
@@ -140,6 +159,7 @@ export type CustomElementDrawCommand =
       fit: CustomElementImageFit;
       radius: number;
     }
+  | { type: "scale"; scaleX: number; scaleY: number }
   | { type: "save" }
   | { type: "restore" }
   | {
@@ -335,6 +355,10 @@ export class CustomElementPainter {
     });
   }
 
+  public scale(scaleX: number, scaleY: number) {
+    this.commands.push({ type: "scale", scaleX, scaleY });
+  }
+
   public save() {
     this.commands.push({ type: "save" });
   }
@@ -362,15 +386,36 @@ export type CustomElementRenderer<
   TData extends CustomElementData = CustomElementData,
 > = Readonly<{
   id: string;
+  /** Controls the resolution and zoom invalidation of the element canvas. */
+  cache?: CustomElementCacheStrategy;
+  /**
+   * Optional logical coordinate system used by the renderer. When provided,
+   * all painter commands are scaled from this viewBox to the element's current
+   * width and height. This makes element resize behave like scaling the whole
+   * rendered card, while renderers without a viewBox remain responsive.
+   */
+  viewBox?:
+    | CustomElementViewBox
+    | ((context: {
+        element: Readonly<TypedExcalidrawCustomElement<TData>>;
+      }) => CustomElementViewBox);
   render: (context: {
     element: Readonly<TypedExcalidrawCustomElement<TData>>;
     painter: CustomElementPainter;
     theme: Theme;
+    /** Logical dimensions painter commands should use. */
+    viewBox: CustomElementViewBox;
   }) => void;
+}>;
+
+export type CustomElementViewBox = Readonly<{
+  width: number;
+  height: number;
 }>;
 
 export type CustomElementDefinition<
   TData extends CustomElementData = CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
 > = Readonly<{
   type: string;
   schemaVersion: number;
@@ -388,8 +433,9 @@ export type CustomElementDefinition<
           resource: CustomElementResource | null;
           data: TData;
           file: File | null;
+          request: CustomElementPreviewRequest<TPreviewRequest> | null;
         }>,
-    ) => Promise<FileId | null>;
+    ) => Promise<CustomElementPreviewOutput>;
   }>;
   activate?: (
     context: Readonly<{
@@ -402,12 +448,15 @@ export type CustomElementDefinition<
   migrate?: (data: CustomElementData, fromVersion: number) => TData;
 }>;
 
-export const defineCustomElement = <TData extends CustomElementData>(
-  definition: CustomElementDefinition<TData>,
+export const defineCustomElement = <
+  TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+>(
+  definition: CustomElementDefinition<TData, TPreviewRequest>,
 ) => definition;
 
 export const customElementDefinitionAcceptsFile = (
-  definition: CustomElementDefinition<any>,
+  definition: CustomElementDefinition<any, any>,
   file: File,
 ) => {
   const accept = definition.file?.accept;
@@ -431,7 +480,7 @@ export const customElementDefinitionAcceptsFile = (
 };
 
 const rendererRegistry = new Map<string, CustomElementRenderer<any>>();
-const definitionRegistry = new Map<string, CustomElementDefinition<any>>();
+const definitionRegistry = new Map<string, CustomElementDefinition<any, any>>();
 let rendererRegistryRevision = 0;
 
 export const getCustomElementRendererRevision = () => rendererRegistryRevision;
@@ -474,8 +523,11 @@ export const unregisterCustomElement = (customType: string) => {
   }
 };
 
-export const registerCustomElement = <TData extends CustomElementData>(
-  definition: CustomElementDefinition<TData>,
+export const registerCustomElement = <
+  TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+>(
+  definition: CustomElementDefinition<TData, TPreviewRequest>,
 ) => {
   if (!definition.type) {
     throw new Error("Custom element definition requires a non-empty type");
@@ -558,11 +610,39 @@ export const createCustomElementDrawCommands = (
     return painter.getCommands();
   }
   try {
-    renderer.render({ element, painter, theme });
+    const configuredViewBox =
+      typeof renderer.viewBox === "function"
+        ? renderer.viewBox({ element })
+        : renderer.viewBox;
+    const viewBox = configuredViewBox ?? {
+      width: element.width,
+      height: element.height,
+    };
+    if (
+      !Number.isFinite(viewBox.width) ||
+      viewBox.width <= 0 ||
+      !Number.isFinite(viewBox.height) ||
+      viewBox.height <= 0
+    ) {
+      throw new Error(
+        `Custom element renderer "${element.rendererId}" returned an invalid viewBox`,
+      );
+    }
+    if (configuredViewBox) {
+      painter.save();
+      painter.scale(
+        element.width / configuredViewBox.width,
+        element.height / configuredViewBox.height,
+      );
+    }
+    renderer.render({ element, painter, theme, viewBox });
+    if (configuredViewBox) {
+      painter.restore();
+    }
     return painter.getCommands();
   } catch (error) {
     console.error(
-      `Custom element renderer \"${element.rendererId}\" failed`,
+      `Custom element renderer "${element.rendererId}" failed`,
       error,
     );
     const fallbackPainter = new CustomElementPainter();
@@ -627,6 +707,9 @@ export const drawCustomElementCommandsToCanvas = (
         break;
       case "restore":
         context.restore();
+        break;
+      case "scale":
+        context.scale(command.scaleX, command.scaleY);
         break;
       case "clipRect":
         roundedRectPath(
@@ -759,6 +842,7 @@ export const drawCustomElementCommandsToSvg = (
   const svgNS = "http://www.w3.org/2000/svg";
   const root = document.createElementNS(svgNS, "g");
   const stack: SVGGElement[] = [root];
+  const savedStackDepths: number[] = [];
   let clipIndex = 0;
   const append = (node: SVGElement) =>
     stack[stack.length - 1].appendChild(node);
@@ -775,16 +859,40 @@ export const drawCustomElementCommandsToSvg = (
   for (const command of commands) {
     switch (command.type) {
       case "save": {
+        savedStackDepths.push(stack.length);
         const group = document.createElementNS(svgNS, "g");
         append(group);
         stack.push(group);
         break;
       }
-      case "restore":
-        if (stack.length > 1) {
-          stack.pop();
+      case "restore": {
+        const savedDepth = savedStackDepths.pop();
+        if (savedDepth !== undefined) {
+          stack.length = savedDepth;
         }
         break;
+      }
+      case "scale": {
+        const currentGroup = stack[stack.length - 1];
+        if (
+          currentGroup.childNodes.length === 0 &&
+          !currentGroup.hasAttribute("transform")
+        ) {
+          currentGroup.setAttribute(
+            "transform",
+            `scale(${command.scaleX} ${command.scaleY})`,
+          );
+        } else {
+          const group = document.createElementNS(svgNS, "g");
+          group.setAttribute(
+            "transform",
+            `scale(${command.scaleX} ${command.scaleY})`,
+          );
+          append(group);
+          stack.push(group);
+        }
+        break;
+      }
       case "clipRect": {
         const clipId = `${idPrefix}-clip-${clipIndex++}`;
         const defs = document.createElementNS(svgNS, "defs");

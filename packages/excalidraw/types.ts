@@ -35,6 +35,7 @@ import type {
   BindMode,
   ExcalidrawTextElement,
   ExcalidrawCustomElement,
+  CustomElementValue,
   StrokeVariability,
 } from "@excalidraw/element/types";
 
@@ -49,6 +50,8 @@ import type {
   CaptureUpdateActionType,
   CustomElementActivation,
   CustomElementAssetStore,
+  CustomElementData,
+  TypedExcalidrawCustomElement,
   DurableIncrement,
   EphemeralIncrement,
 } from "@excalidraw/element";
@@ -624,6 +627,8 @@ export type ExcalidrawInitialState = {
   viewport?: Omit<SetViewportOptions, "animation">;
 };
 
+export type ZoomRenderStrategy = "cached" | "throttled" | "live";
+
 export type OnUserFollowedPayload = {
   userToFollow: UserToFollow;
   action: "FOLLOW" | "UNFOLLOW";
@@ -692,6 +697,36 @@ export type InteractionConfig = {
   };
 };
 
+export type DoubleClickCapability =
+  | boolean
+  | {
+      /** Fallback for element types and the canvas when not configured. */
+      default?: boolean;
+      /** Whether double-clicking empty canvas is handled. */
+      canvas?: boolean;
+      /** Per-element-type overrides. */
+      elementTypes?: Partial<Record<ExcalidrawElementType, boolean>>;
+    };
+
+export type ExcalidrawCapabilities = {
+  transforms?: {
+    /**
+     * Whether the rotation handle is rendered and accepts user input.
+     * Programmatic updates to an element's angle remain supported.
+     *
+     * @default true
+     */
+    rotation?: boolean;
+  };
+  /**
+   * Controls whether canvas double-click actions are handled globally or by
+   * the resolved target element type.
+   *
+   * @default true
+   */
+  doubleClick?: DoubleClickCapability;
+};
+
 export type InsertCustomElementFromFileOptions = Readonly<{
   customType: string;
   file: File;
@@ -703,8 +738,57 @@ export type InsertCustomElementFromFileOptions = Readonly<{
   signal?: AbortSignal;
 }>;
 
+export type CustomElementFileImportLayoutItem = Readonly<{
+  file: File;
+  index: number;
+  width: number;
+  height: number;
+}>;
+
+export type CustomElementFileImportLayoutContext = Readonly<{
+  viewport: Readonly<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
+}>;
+
+export type InsertCustomElementsFromFilesOptions = Readonly<{
+  customType: string;
+  files: readonly File[];
+  layout?: (
+    items: readonly CustomElementFileImportLayoutItem[],
+    context: CustomElementFileImportLayoutContext,
+  ) => readonly Readonly<{ x: number; y: number }>[];
+  select?: boolean;
+  signal?: AbortSignal;
+}>;
+
 export type CustomElementOperationOptions = Readonly<{
   signal?: AbortSignal;
+}>;
+
+export type RefreshCustomElementPreviewOptions<
+  TRequest extends CustomElementValue = CustomElementValue,
+> = CustomElementOperationOptions &
+  Readonly<{
+    request?: Readonly<{ reason?: string; data?: TRequest }>;
+  }>;
+
+export type RefreshCustomElementPreviewResult =
+  | Readonly<{
+      status: "applied";
+      element: NonDeleted<ExcalidrawCustomElement>;
+    }>
+  | Readonly<{ status: "superseded" }>
+  | Readonly<{
+      status: "unchanged";
+      element: NonDeleted<ExcalidrawCustomElement>;
+    }>;
+
+export type UpdateCustomElementDataOptions = Readonly<{
+  history?: "record" | "ignore";
 }>;
 
 export type ActivateCustomElementOptions = CustomElementOperationOptions &
@@ -718,25 +802,30 @@ export type CustomElementOverlayStateUpdater<TState> =
 
 /** Per-editor transient UI state. Nothing stored here is serialized. */
 export type CustomElementOverlayController = Readonly<{
-  open: <TState = unknown>(
-    elementId: ExcalidrawCustomElement["id"],
-    overlayId: string,
-    state?: TState,
-  ) => void;
+  open: (elementId: ExcalidrawCustomElement["id"], overlayId: string) => void;
   close: (elementId: ExcalidrawCustomElement["id"], overlayId: string) => void;
-  toggle: <TState = unknown>(
+  toggle: (elementId: ExcalidrawCustomElement["id"], overlayId: string) => void;
+  closeAfter: (
     elementId: ExcalidrawCustomElement["id"],
     overlayId: string,
-    state?: TState,
-  ) => void;
+    promise: Promise<unknown>,
+    options?: Readonly<{ closeOnError?: boolean }>,
+  ) => Promise<"closed" | "stale" | "failed">;
   setState: <TState = unknown>(
     elementId: ExcalidrawCustomElement["id"],
-    overlayId: string,
+    stateScope: string,
     updater: CustomElementOverlayStateUpdater<TState>,
+  ) => void;
+  patchState: <TState extends Readonly<Record<string, unknown>>>(
+    elementId: ExcalidrawCustomElement["id"],
+    stateScope: string,
+    patch:
+      | Partial<TState>
+      | ((previous: TState | undefined) => Partial<TState>),
   ) => void;
   getState: <TState = unknown>(
     elementId: ExcalidrawCustomElement["id"],
-    overlayId: string,
+    stateScope: string,
   ) => TState | undefined;
   isOpen: (
     elementId: ExcalidrawCustomElement["id"],
@@ -760,6 +849,20 @@ export interface ExcalidrawProps {
     | (() => MaybePromise<ExcalidrawInitialDataState | null>)
     | MaybePromise<ExcalidrawInitialDataState | null>;
   initialState?: ExcalidrawInitialState;
+  /**
+   * Controls element-canvas regeneration while the user is continuously
+   * zooming. `cached` favors frame rate, `live` favors sharpness, and
+   * `throttled` periodically refreshes the cache to balance both.
+   *
+   * @default "throttled"
+   */
+  zoomRenderStrategy?: ZoomRenderStrategy;
+  /**
+   * Multiplier applied to continuous wheel and gesture zoom input.
+   *
+   * @default 1
+   */
+  zoomSensitivity?: number;
   /**
    * Invoked as soon as the Excalidraw API is available
    * NOTE editor is not yet mounted, and state is not yet initialized
@@ -829,6 +932,8 @@ export interface ExcalidrawProps {
    * @default true
    */
   interaction?: boolean | InteractionConfig;
+  /** Fine-grained user interaction capabilities. */
+  capabilities?: ExcalidrawCapabilities;
   /**
    * Whether Excalidraw's default UI is rendered — toolbar, default menus,
    * footer controls, sidebars, and canvas popups. Host UI passed through
@@ -1063,6 +1168,7 @@ export type AppClassProperties = {
 
   onPointerUpEmitter: App["onPointerUpEmitter"];
   updateEditorAtom: App["updateEditorAtom"];
+  isRotationEnabled: App["isRotationEnabled"];
   onPointerDownEmitter: App["onPointerDownEmitter"];
   onEvent: App["onEvent"];
   onStateChange: App["onStateChange"];
@@ -1199,10 +1305,22 @@ export interface ExcalidrawImperativeAPI {
   insertCustomElementFromFile: (
     options: InsertCustomElementFromFileOptions,
   ) => Promise<NonDeleted<ExcalidrawCustomElement>>;
-  refreshCustomElementPreview: (
+  insertCustomElementsFromFiles: (
+    options: InsertCustomElementsFromFilesOptions,
+  ) => Promise<readonly NonDeleted<ExcalidrawCustomElement>[]>;
+  refreshCustomElementPreview: <
+    TRequest extends CustomElementValue = CustomElementValue,
+  >(
     elementId: ExcalidrawCustomElement["id"],
-    options?: CustomElementOperationOptions,
-  ) => Promise<NonDeleted<ExcalidrawCustomElement>>;
+    options?: RefreshCustomElementPreviewOptions<TRequest>,
+  ) => Promise<RefreshCustomElementPreviewResult>;
+  updateCustomElementData: <
+    TData extends CustomElementData = CustomElementData,
+  >(
+    elementId: ExcalidrawCustomElement["id"],
+    updater: TData | ((data: TData) => TData),
+    options?: UpdateCustomElementDataOptions,
+  ) => Promise<TypedExcalidrawCustomElement<TData>>;
   activateCustomElement: (
     elementId: ExcalidrawCustomElement["id"],
     options?: ActivateCustomElementOptions,

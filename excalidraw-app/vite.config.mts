@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => {
   // https://vitejs.dev/config/
   return {
     server: {
-      port: Number(envVars.VITE_APP_PORT || 3000),
+      port: 9901,
+      strictPort: true,
       // open the browser
       open: true,
     },

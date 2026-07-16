@@ -14,6 +14,7 @@ import {
   isShallowEqual,
 } from "@excalidraw/common";
 
+import { areCapabilitiesEqual } from "./capabilities";
 import App, {
   ExcalidrawAPIContext,
   ExcalidrawAPISetContext,
@@ -28,10 +29,6 @@ import {
   useAppStateValue as _useAppStateValue,
   useOnAppStateChange as _useOnAppStateChange,
 } from "./hooks/useAppStateValue";
-export {
-  useRegisterCustomElement,
-  useRegisterCustomElementOverlays,
-} from "./hooks/useCustomElement";
 import { EditorJotaiProvider, editorJotaiStore } from "./editor-jotai";
 import polyfill from "./polyfill";
 
@@ -45,6 +42,11 @@ import type {
   ExcalidrawImperativeAPI,
   ExcalidrawProps,
 } from "./types";
+
+export {
+  useRegisterCustomElement,
+  useRegisterCustomElementOverlays,
+} from "./hooks/useCustomElement";
 
 polyfill();
 
@@ -76,6 +78,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onIncrement,
     initialData,
     initialState,
+    zoomRenderStrategy = "throttled",
+    zoomSensitivity = 1,
     onExcalidrawAPI,
     onMount,
     onUnmount,
@@ -87,6 +91,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     langCode = defaultLang.code,
     viewModeEnabled,
     interaction,
+    capabilities,
     ui,
     zenModeEnabled,
     gridModeEnabled,
@@ -212,6 +217,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onIncrement={onIncrement}
           initialData={initialData}
           initialState={initialState}
+          zoomRenderStrategy={zoomRenderStrategy}
+          zoomSensitivity={zoomSensitivity}
           onExcalidrawAPI={handleExcalidrawAPI}
           onMount={onMount}
           onUnmount={onUnmount}
@@ -223,6 +230,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           langCode={langCode}
           viewModeEnabled={viewModeEnabled}
           interaction={interaction}
+          capabilities={capabilities}
           ui={ui}
           zenModeEnabled={zenModeEnabled}
           gridModeEnabled={gridModeEnabled}
@@ -269,6 +277,7 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
     UIOptions: prevUIOptions = {},
     imageOptions: prevImageOptions,
     interaction: prevInteraction,
+    capabilities: prevCapabilities,
     ...prev
   } = prevProps;
   const {
@@ -276,6 +285,7 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
     UIOptions: nextUIOptions = {},
     imageOptions: nextImageOptions,
     interaction: nextInteraction,
+    capabilities: nextCapabilities,
     ...next
   } = nextProps;
 
@@ -298,6 +308,10 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
         !!nextInteraction.enabled?.browserZoom);
 
   if (!isInteractionSame) {
+    return false;
+  }
+
+  if (!areCapabilitiesEqual(prevCapabilities, nextCapabilities)) {
     return false;
   }
 
@@ -429,6 +443,8 @@ export {
 
 export type {
   CustomElementRenderer,
+  CustomElementCacheStrategy,
+  CustomElementViewBox,
   CustomElementDrawCommand,
   CustomElementDefinition,
   CustomElementData,
@@ -438,6 +454,8 @@ export type {
   CustomElementFileContext,
   CustomElementImportResult,
   CustomElementPreviewStore,
+  CustomElementPreviewRequest,
+  CustomElementPreviewOutput,
   TypedExcalidrawCustomElement,
 } from "@excalidraw/element";
 export type {
@@ -448,28 +466,41 @@ export type {
 
 export {
   defineCustomElementOverlay,
-  defineCustomElementWithOverlays,
-  registerCustomElementWithOverlays,
+  defineCustomElementExtension,
+  registerCustomElementExtension,
   registerCustomElementOverlays,
   unregisterCustomElementOverlays,
   getCustomElementOverlays,
 } from "./customElementOverlay/registry";
 export type {
+  CustomElementExtension,
+  CustomElementLifecycleContext,
   CustomElementOverlayDefinition,
   CustomElementOverlayRenderContext,
   CustomElementOverlayVisibility,
   CustomElementOverlayVisibilityContext,
   CustomElementOverlayKind,
+  CustomElementOverlayPresence,
+  CustomElementOverlayTransition,
+  CustomElementOverlayInteraction,
   CustomElementOverlayCoordinateSpace,
   CustomElementOverlayPlacement,
   CustomElementOverlayPoint,
   CustomElementOverlayRect,
   CustomElementOverlayOffset,
-  CustomElementWithOverlays,
 } from "./customElementOverlay/types";
 export type {
   CustomElementOverlayController,
   CustomElementOverlayStateUpdater,
+  DoubleClickCapability,
+  ExcalidrawCapabilities,
+  ZoomRenderStrategy,
+  RefreshCustomElementPreviewOptions,
+  RefreshCustomElementPreviewResult,
+  InsertCustomElementsFromFilesOptions,
+  CustomElementFileImportLayoutItem,
+  CustomElementFileImportLayoutContext,
+  UpdateCustomElementDataOptions,
 } from "./types";
 
 export * from "./canvas";

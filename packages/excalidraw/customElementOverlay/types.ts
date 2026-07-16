@@ -3,8 +3,10 @@ import type { CSSProperties, ReactNode } from "react";
 import type {
   CustomElementAssetStore,
   CustomElementData,
+  CustomElementDefinition,
   TypedExcalidrawCustomElement,
 } from "@excalidraw/element";
+import type { CustomElementValue } from "@excalidraw/element/types";
 
 import type {
   AppState,
@@ -13,6 +15,7 @@ import type {
 } from "../types";
 
 export type CustomElementOverlayKind = "surface" | "panel" | "popover";
+export type CustomElementOverlayPresence = "entering" | "present" | "exiting";
 export type CustomElementOverlayCoordinateSpace = "element" | "screen";
 export type CustomElementOverlayPlacement =
   | "top"
@@ -36,6 +39,17 @@ export type CustomElementOverlayRect = Readonly<{
 export type CustomElementOverlayOffset =
   | number
   | Readonly<{ x: number; y: number }>;
+
+export type CustomElementOverlayTransition = Readonly<{
+  enterMs?: number;
+  exitMs?: number;
+  easing?: string;
+}>;
+
+export type CustomElementOverlayInteraction = Readonly<{
+  pointer?: "canvas" | "overlay";
+  wheel?: "canvas" | "overlay";
+}>;
 
 export type CustomElementOverlayVisibilityContext<
   TData extends CustomElementData = CustomElementData,
@@ -72,12 +86,23 @@ export type CustomElementOverlayRenderContext<
 > = CustomElementOverlayVisibilityContext<TData, TState> &
   Readonly<{
     overlayId: string;
+    stateScope: string;
     coordinateSpace: CustomElementOverlayCoordinateSpace;
-    open: <TNextState = TState>(state?: TNextState) => void;
+    presence: CustomElementOverlayPresence;
+    open: () => void;
     close: () => void;
-    toggle: <TNextState = TState>(state?: TNextState) => void;
+    toggle: () => void;
+    closeAfter: (
+      promise: Promise<unknown>,
+      options?: Readonly<{ closeOnError?: boolean }>,
+    ) => Promise<"closed" | "stale" | "failed">;
     setState: (
       updater: TState | ((previous: TState | undefined) => TState),
+    ) => void;
+    patchState: <TObjectState extends Readonly<Record<string, unknown>>>(
+      patch:
+        | Partial<TObjectState>
+        | ((previous: TObjectState | undefined) => Partial<TObjectState>),
     ) => void;
   }>;
 
@@ -87,8 +112,11 @@ export type CustomElementOverlayDefinition<
 > = Readonly<{
   id: string;
   kind: CustomElementOverlayKind;
+  stateScope?: string;
   coordinateSpace?: CustomElementOverlayCoordinateSpace;
   visibility?: CustomElementOverlayVisibility<TData, TState>;
+  transition?: CustomElementOverlayTransition;
+  interaction?: CustomElementOverlayInteraction;
   /** Keep an initialized DOM subtree alive offscreen (useful for playback). */
   viewport?: "unmount" | "keep-mounted";
 
@@ -112,7 +140,6 @@ export type CustomElementOverlayDefinition<
         padding?: number;
       }>;
 
-  pointerEvents?: "auto" | "none";
   clip?: boolean;
   inheritElementOpacity?: boolean;
   className?: string;
@@ -121,15 +148,40 @@ export type CustomElementOverlayDefinition<
   render: (
     context: CustomElementOverlayRenderContext<TData, TState>,
   ) => ReactNode;
+  onVisibilityChange?: (
+    context: CustomElementOverlayRenderContext<TData, TState>,
+    change: Readonly<{ visible: boolean; previousVisible: boolean }>,
+  ) => void;
   onMount?: (context: CustomElementOverlayRenderContext<TData, TState>) => void;
   onUnmount?: (
     context: CustomElementOverlayRenderContext<TData, TState>,
   ) => void;
 }>;
 
-export type CustomElementWithOverlays<
+export type CustomElementLifecycleContext<
   TData extends CustomElementData = CustomElementData,
 > = Readonly<{
-  definition: import("@excalidraw/element").CustomElementDefinition<TData>;
+  element: TypedExcalidrawCustomElement<TData>;
+  appState: AppState;
+  api: ExcalidrawImperativeAPI;
+  assets: CustomElementAssetStore | null;
+  runtime: CustomElementOverlayController;
+}>;
+
+export type CustomElementExtension<
+  TData extends CustomElementData = CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
+> = Readonly<{
+  definition: CustomElementDefinition<TData, TPreviewRequest>;
   overlays?: readonly CustomElementOverlayDefinition<TData, any>[];
+  lifecycle?: Readonly<{
+    onSelectionChange?: (
+      context: CustomElementLifecycleContext<TData> &
+        Readonly<{ isSelected: boolean; previousIsSelected: boolean }>,
+    ) => void;
+    onViewportChange?: (
+      context: CustomElementLifecycleContext<TData> &
+        Readonly<{ isInViewport: boolean; previousIsInViewport: boolean }>,
+    ) => void;
+  }>;
 }>;

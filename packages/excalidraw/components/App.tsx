@@ -227,6 +227,7 @@ import {
   getCursorForResizingElement,
   getElementWithTransformHandleType,
   getTransformHandleTypeFromCoords,
+  getOmitSidesForEditorInterface,
   dragNewElement,
   dragSelectedElements,
   getDragOffsetXY,
@@ -261,7 +262,9 @@ import {
   getBindingStrategyForDraggingBindingElementEndpoints,
   isNonDeletedElement,
   getCustomElementDefinition,
+  getCustomElementRenderer,
   customElementDefinitionAcceptsFile,
+  type CustomElementPreviewOutput,
 } from "@excalidraw/element";
 
 import type { GlobalPoint, LocalPoint, Radians } from "@excalidraw/math";
@@ -365,6 +368,10 @@ import { restoreAppState, restoreElements } from "../data/restore";
 import { getCenter, getDistance } from "../gesture";
 import { History } from "../history";
 import { defaultLang, getLanguage, languages, setLanguage, t } from "../i18n";
+import {
+  isDoubleClickEnabled as isDoubleClickCapabilityEnabled,
+  isRotationEnabled as isRotationCapabilityEnabled,
+} from "../capabilities";
 
 import {
   getScrollToContentState,
@@ -645,6 +652,7 @@ const YOUTUBE_VIDEO_STATES = new Map<
 >();
 
 const MAX_EMBEDDABLE_VIEWPORT_SCALE = 4;
+const ZOOM_RENDER_THROTTLE_MS = 100;
 
 /** how long after the last pan/zoom we animate the rubberband back into the
  * scroll constraints box */
@@ -661,6 +669,11 @@ const gesture: Gesture = {
   initialDistance: null,
   initialScale: null,
 };
+
+const hasScaleViewBox = (element: ExcalidrawElement) =>
+  isImageElement(element) ||
+  (isCustomElement(element) &&
+    !!getCustomElementRenderer(element.rendererId)?.viewBox);
 
 class App extends React.Component<AppProps, AppState> {
   canvas: AppClassProperties["canvas"];
@@ -740,6 +753,7 @@ class App extends React.Component<AppProps, AppState> {
 
   public flowchart: AppFlowchart = new AppFlowchart(this);
   public customElementOverlayRuntime = new CustomElementOverlayRuntime();
+  private customElementPreviewRevisions = new Map<string, number>();
 
   bindModeHandler: ReturnType<typeof setTimeout> | null = null;
   private textWysiwygSubmitHandler: ReturnType<typeof textWysiwyg> | null =
@@ -814,7 +828,9 @@ class App extends React.Component<AppProps, AppState> {
       updateLibrary: this.library.updateLibrary,
       addFiles: this.addFiles,
       insertCustomElementFromFile: this.insertCustomElementFromFile,
+      insertCustomElementsFromFiles: this.insertCustomElementsFromFiles,
       refreshCustomElementPreview: this.refreshCustomElementPreview,
+      updateCustomElementData: this.updateCustomElementData,
       activateCustomElement: this.activateCustomElement,
       customElementOverlays: this.customElementOverlayRuntime,
       resetScene: this.resetScene,
@@ -1007,6 +1023,28 @@ class App extends React.Component<AppProps, AppState> {
   /** Whether Excalidraw's default UI is rendered. */
   public isDefaultUIEnabled(props: Pick<AppProps, "ui"> = this.props): boolean {
     return props.ui !== false;
+  }
+
+  public isRotationEnabled(
+    props: Pick<AppProps, "capabilities"> = this.props,
+  ): boolean {
+    return isRotationCapabilityEnabled(props.capabilities);
+  }
+
+  private getTransformHandleOmissions() {
+    return {
+      ...getOmitSidesForEditorInterface(this.editorInterface),
+      rotation: !this.isRotationEnabled(),
+    };
+  }
+
+  private isDoubleClickEnabledFor(
+    element: Pick<ExcalidrawElement, "type"> | null,
+  ) {
+    return isDoubleClickCapabilityEnabled(
+      this.props.capabilities,
+      element?.type ?? null,
+    );
   }
 
   updateEditorAtom = <Value, Args extends unknown[], Result>(
@@ -3268,6 +3306,7 @@ class App extends React.Component<AppProps, AppState> {
    */
   private resetScene = withBatchedUpdates(
     (opts?: { resetLoadingState: boolean }) => {
+      this.customElementPreviewRevisions.clear();
       this.scene.replaceAllElements([]);
       this.setState((state) => ({
         ...getDefaultAppState(),
@@ -3521,6 +3560,7 @@ class App extends React.Component<AppProps, AppState> {
 
   public async componentDidMount() {
     this.unmounted = false;
+    this.customElementPreviewRevisions.clear();
     this.customElementOverlayRuntime.reset();
     this.api = this.createExcalidrawAPI();
 
@@ -3646,6 +3686,7 @@ class App extends React.Component<AppProps, AppState> {
     this.renderer = new Renderer(this.scene);
     this.files = {};
     this.imageCache.clear();
+    this.customElementPreviewRevisions.clear();
     this.customElementOverlayRuntime.destroy();
     this.resizeObserver?.disconnect();
     this.unmounted = true;
@@ -4895,13 +4936,16 @@ class App extends React.Component<AppProps, AppState> {
     value: number,
   ) => {
     this.setState((state) => {
+      const minZoom = state.scrollConstraints?.lockZoom
+        ? state.scrollConstraints.zoom
+        : MIN_ZOOM;
       const nextState = {
         ...state,
         ...getStateForZoom(
           {
             viewportX: state.width / 2 + state.offsetLeft,
             viewportY: state.height / 2 + state.offsetTop,
-            nextZoom: getNormalizedZoom(value),
+            nextZoom: getNormalizedZoom(value, minZoom),
           },
           state,
         ),
@@ -5164,7 +5208,10 @@ class App extends React.Component<AppProps, AppState> {
     },
   );
 
-  private createCustomElementPreviewStore = () => ({
+  private createCustomElementPreviewStore = (
+    onPut?: (fileId: FileId) => void,
+    stagedFiles?: BinaryFiles,
+  ) => ({
     put: async (preview: File | Blob, options?: { name?: string }) => {
       const previewFile =
         preview instanceof File
@@ -5191,98 +5238,290 @@ class App extends React.Component<AppProps, AppState> {
         throw new Error("Could not generate a custom element preview file id");
       }
       const brandedFileId = fileId as FileId;
-      this.addFiles([
-        {
+      const alreadyStored = Boolean(
+        this.files[brandedFileId] || stagedFiles?.[brandedFileId],
+      );
+      if (!alreadyStored) {
+        const fileData = {
           id: brandedFileId,
           mimeType: previewFile.type as ValueOf<typeof IMAGE_MIME_TYPES>,
           dataURL: await getDataURL(previewFile),
           created: Date.now(),
           lastRetrieved: Date.now(),
-        },
-      ]);
+        };
+        if (stagedFiles) {
+          stagedFiles[brandedFileId] = fileData;
+        } else {
+          this.addFiles([fileData]);
+        }
+        onPut?.(brandedFileId);
+      }
       return brandedFileId;
     },
   });
 
-  public insertCustomElementFromFile: ExcalidrawImperativeAPI["insertCustomElementFromFile"] =
-    async (options) => {
-      const definition = getCustomElementDefinition(options.customType);
-      if (!definition) {
-        throw new Error(
-          `No custom element definition registered for \"${options.customType}\"`,
-        );
+  private resolveCustomElementPreview = async (
+    output: CustomElementPreviewOutput,
+    previewStore: ReturnType<App["createCustomElementPreviewStore"]>,
+    name?: string,
+  ): Promise<FileId | null | undefined> => {
+    if (output === null) {
+      return undefined;
+    }
+    if (typeof output === "string") {
+      return output;
+    }
+    if (output instanceof Blob) {
+      return previewStore.put(output, { name });
+    }
+    return null;
+  };
+
+  private rollbackCustomElementPreviews = (fileIds: readonly FileId[]) => {
+    if (!fileIds.length) {
+      return;
+    }
+    const nextFiles = { ...this.files };
+    let changed = false;
+    for (const fileId of fileIds) {
+      if (nextFiles[fileId]) {
+        delete nextFiles[fileId];
+        changed = true;
       }
-      const fileDefinition = definition.file;
-      const importFile = fileDefinition?.import;
-      if (!importFile) {
-        throw new Error(
-          `Custom element \"${options.customType}\" does not support file import`,
-        );
-      }
-      if (!customElementDefinitionAcceptsFile(definition, options.file)) {
-        throw new Error(
-          `File \"${options.file.name}\" is not accepted by custom element \"${options.customType}\"`,
-        );
+      this.imageCache.delete(fileId);
+    }
+    if (!changed) {
+      return;
+    }
+    this.files = nextFiles;
+    this.scene.triggerUpdate();
+  };
+
+  private insertCustomElementsFromFilesInternal = async (
+    options: Parameters<
+      ExcalidrawImperativeAPI["insertCustomElementsFromFiles"]
+    >[0],
+    singleOverrides?: Readonly<{
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+    }>,
+  ): Promise<Ordered<NonDeleted<ExcalidrawCustomElement>>[]> => {
+    const definition = getCustomElementDefinition(options.customType);
+    if (!definition) {
+      throw new Error(
+        `No custom element definition registered for \"${options.customType}\"`,
+      );
+    }
+    const fileDefinition = definition.file;
+    const importFile = fileDefinition?.import;
+    if (!importFile) {
+      throw new Error(
+        `Custom element \"${options.customType}\" does not support file import`,
+      );
+    }
+    if (!options.files.length) {
+      return [];
+    }
+
+    const signal = options.signal ?? new AbortController().signal;
+    const previewFileIds: FileId[] = [];
+    const stagedPreviewFiles: BinaryFiles = {};
+    const importedResources: ExcalidrawCustomElement["resource"][] = [];
+    const previewStore = this.createCustomElementPreviewStore(
+      (fileId) => previewFileIds.push(fileId),
+      stagedPreviewFiles,
+    );
+    try {
+      const imported = [];
+      for (const [index, file] of options.files.entries()) {
+        throwIfCustomElementOperationAborted(signal);
+        if (!customElementDefinitionAcceptsFile(definition, file)) {
+          throw new Error(
+            `File \"${file.name}\" is not accepted by custom element \"${options.customType}\"`,
+          );
+        }
+        const result = await importFile({
+          file,
+          assets: this.props.customElementAssets ?? null,
+          previews: previewStore,
+          signal,
+        });
+        throwIfCustomElementOperationAborted(signal);
+        if (result.resource) {
+          importedResources.push(result.resource);
+        }
+        const previewOutput =
+          result.preview !== undefined
+            ? result.preview
+            : fileDefinition.createPreview
+            ? await fileDefinition.createPreview({
+                element: null,
+                resource: result.resource ?? null,
+                data: result.data,
+                file,
+                assets: this.props.customElementAssets ?? null,
+                previews: previewStore,
+                signal,
+                request: null,
+              })
+            : null;
+        throwIfCustomElementOperationAborted(signal);
+        const previewFileId =
+          (await this.resolveCustomElementPreview(
+            previewOutput,
+            previewStore,
+            file.name,
+          )) ?? null;
+        imported.push({
+          file,
+          index,
+          result,
+          previewFileId,
+          width: singleOverrides?.width ?? result.width ?? 320,
+          height: singleOverrides?.height ?? result.height ?? 200,
+        });
       }
 
-      const signal = options.signal ?? new AbortController().signal;
-      throwIfCustomElementOperationAborted(signal);
-      const result = await importFile({
-        file: options.file,
-        assets: this.props.customElementAssets ?? null,
-        previews: this.createCustomElementPreviewStore(),
-        signal,
+      const previewIdsToDecode = imported
+        .map((item) => item.previewFileId)
+        .filter(
+          (fileId): fileId is FileId =>
+            Boolean(fileId) && !this.imageCache.has(fileId as FileId),
+        );
+      const filesWithStagedPreviews = {
+        ...this.files,
+        ...stagedPreviewFiles,
+      };
+      if (
+        previewIdsToDecode.some((fileId) => !filesWithStagedPreviews[fileId])
+      ) {
+        throw new Error("Custom element preview file was not found");
+      }
+      const { erroredFiles } = await _updateImageCache({
+        imageCache: this.imageCache,
+        fileIds: previewIdsToDecode,
+        files: filesWithStagedPreviews,
       });
       throwIfCustomElementOperationAborted(signal);
-      const previewFileId =
-        result.previewFileId !== undefined
-          ? result.previewFileId
-          : fileDefinition.createPreview
-          ? await fileDefinition.createPreview({
-              element: null,
-              resource: result.resource ?? null,
-              data: result.data,
-              file: options.file,
-              assets: this.props.customElementAssets ?? null,
-              previews: this.createCustomElementPreviewStore(),
-              signal,
-            })
-          : null;
-      throwIfCustomElementOperationAborted(signal);
+      if (erroredFiles.size) {
+        throw new Error("Custom element preview could not be decoded");
+      }
 
-      const width = options.width ?? result.width ?? 320;
-      const height = options.height ?? result.height ?? 200;
       const zoom = this.state.zoom.value;
-      const x =
-        options.x ??
-        -this.state.scrollX + this.state.width / zoom / 2 - width / 2;
-      const y =
-        options.y ??
-        -this.state.scrollY + this.state.height / zoom / 2 - height / 2;
-      const element = newCustomElement({
-        x,
-        y,
+      const viewport = {
+        x: -this.state.scrollX,
+        y: -this.state.scrollY,
+        width: this.state.width / zoom,
+        height: this.state.height / zoom,
+      };
+      const layoutItems = imported.map(({ file, index, width, height }) => ({
+        file,
+        index,
         width,
         height,
-        customType: definition.type,
-        schemaVersion: definition.schemaVersion,
-        rendererId:
-          definition.renderer?.id ?? definition.rendererId ?? definition.type,
-        rendererVersion: definition.schemaVersion,
-        resource: result.resource ?? null,
-        previewFileId,
-        status: "ready",
-        data: result.data,
-      });
+      }));
+      const totalWidth =
+        layoutItems.reduce((sum, item) => sum + item.width, 0) +
+        Math.max(0, layoutItems.length - 1) * 24;
+      let cursorX = viewport.x + (viewport.width - totalWidth) / 2;
+      const positions = options.layout
+        ? options.layout(layoutItems, { viewport })
+        : layoutItems.map((item) => {
+            const position = {
+              x: cursorX,
+              y: viewport.y + (viewport.height - item.height) / 2,
+            };
+            cursorX += item.width + 24;
+            return position;
+          });
+      if (positions.length !== imported.length) {
+        throw new Error(
+          "Custom element file layout must return one position per file",
+        );
+      }
 
+      const created = imported.map((item, index) => {
+        const position = positions[index];
+        const x = singleOverrides?.x ?? position.x;
+        const y = singleOverrides?.y ?? position.y;
+        if (![x, y].every(Number.isFinite)) {
+          throw new Error(
+            "Custom element file layout returned invalid coordinates",
+          );
+        }
+        return newCustomElement({
+          x,
+          y,
+          width: item.width,
+          height: item.height,
+          customType: definition.type,
+          schemaVersion: definition.schemaVersion,
+          rendererId:
+            definition.renderer?.id ?? definition.rendererId ?? definition.type,
+          rendererVersion: definition.schemaVersion,
+          resource: item.result.resource ?? null,
+          previewFileId: item.previewFileId,
+          status: "ready",
+          data: item.result.data,
+        });
+      });
+      const elements = syncInvalidIndices([
+        ...this.scene.getElementsIncludingDeleted(),
+        ...created,
+      ]);
+      const createdIds = new Set(created.map((element) => element.id));
+      const inserted = elements.filter(
+        (element) => createdIds.has(element.id) && isCustomElement(element),
+      ) as Ordered<NonDeleted<ExcalidrawCustomElement>>[];
+      const previewFilesToCommit = Object.values(stagedPreviewFiles);
+      if (previewFilesToCommit.length) {
+        this.addFiles(previewFilesToCommit);
+      }
       this.updateScene({
-        elements: [...this.scene.getElementsIncludingDeleted(), element],
+        elements,
         appState:
           options.select === false
             ? null
-            : { selectedElementIds: { [element.id]: true } },
+            : {
+                selectedElementIds: Object.fromEntries(
+                  inserted.map((element) => [element.id, true]),
+                ),
+              },
         captureUpdate: CaptureUpdateAction.IMMEDIATELY,
       });
+      return inserted;
+    } catch (error) {
+      this.rollbackCustomElementPreviews(previewFileIds);
+      const remove = this.props.customElementAssets?.remove;
+      if (remove) {
+        await Promise.allSettled(
+          importedResources
+            .filter((resource): resource is NonNullable<typeof resource> =>
+              Boolean(resource),
+            )
+            .map((resource) => remove(resource)),
+        );
+      }
+      throw error;
+    }
+  };
+
+  public insertCustomElementsFromFiles: ExcalidrawImperativeAPI["insertCustomElementsFromFiles"] =
+    async (options) => this.insertCustomElementsFromFilesInternal(options);
+
+  public insertCustomElementFromFile: ExcalidrawImperativeAPI["insertCustomElementFromFile"] =
+    async (options) => {
+      const [element] = await this.insertCustomElementsFromFilesInternal(
+        {
+          customType: options.customType,
+          files: [options.file],
+          select: options.select,
+          signal: options.signal,
+        },
+        options,
+      );
       return element;
     };
 
@@ -5301,32 +5540,117 @@ class App extends React.Component<AppProps, AppState> {
       }
 
       const signal = options?.signal ?? new AbortController().signal;
-      const previewFileId = await createPreview({
-        element,
-        resource: element.resource,
-        data: element.data,
-        file: null,
-        assets: this.props.customElementAssets ?? null,
-        previews: this.createCustomElementPreviewStore(),
-        signal,
-      });
-      throwIfCustomElementOperationAborted(signal);
-      const updatedElement = newElementWith(
-        element as NonDeleted<ExcalidrawCustomElement>,
-        {
-          previewFileId,
-          status: "ready",
-        },
+      const revision =
+        (this.customElementPreviewRevisions.get(elementId) ?? 0) + 1;
+      this.customElementPreviewRevisions.set(elementId, revision);
+      const addedPreviewIds: FileId[] = [];
+      const previewStore = this.createCustomElementPreviewStore((fileId) =>
+        addedPreviewIds.push(fileId),
       );
+      try {
+        const output = await createPreview({
+          element,
+          resource: element.resource,
+          data: element.data,
+          file: null,
+          assets: this.props.customElementAssets ?? null,
+          previews: previewStore,
+          signal,
+          request: options?.request ?? null,
+        });
+        throwIfCustomElementOperationAborted(signal);
+        if (this.customElementPreviewRevisions.get(elementId) !== revision) {
+          this.rollbackCustomElementPreviews(addedPreviewIds);
+          return { status: "superseded" };
+        }
+        const previewFileId = await this.resolveCustomElementPreview(
+          output,
+          previewStore,
+        );
+        throwIfCustomElementOperationAborted(signal);
+        if (this.customElementPreviewRevisions.get(elementId) !== revision) {
+          this.rollbackCustomElementPreviews(addedPreviewIds);
+          return { status: "superseded" };
+        }
+        if (previewFileId === undefined) {
+          return {
+            status: "unchanged",
+            element: element as NonDeleted<ExcalidrawCustomElement>,
+          };
+        }
+        if (previewFileId && !this.imageCache.has(previewFileId)) {
+          if (!this.files[previewFileId]) {
+            this.rollbackCustomElementPreviews(addedPreviewIds);
+            throw new Error("Custom element preview file was not found");
+          }
+          const { erroredFiles } = await _updateImageCache({
+            imageCache: this.imageCache,
+            fileIds: [previewFileId],
+            files: this.files,
+          });
+          throwIfCustomElementOperationAborted(signal);
+          if (erroredFiles.size) {
+            this.rollbackCustomElementPreviews(addedPreviewIds);
+            throw new Error("Custom element preview could not be decoded");
+          }
+        }
+        if (this.customElementPreviewRevisions.get(elementId) !== revision) {
+          this.rollbackCustomElementPreviews(addedPreviewIds);
+          return { status: "superseded" };
+        }
+        const currentElement = this.scene.getElement(elementId);
+        if (
+          !currentElement ||
+          currentElement.isDeleted ||
+          !isCustomElement(currentElement)
+        ) {
+          throw new Error(`Custom element \"${elementId}\" was not found`);
+        }
+        const updatedElement = newElementWith(
+          currentElement as NonDeleted<ExcalidrawCustomElement>,
+          {
+            previewFileId,
+            status: "ready",
+          },
+        );
+        this.updateScene({
+          elements: this.scene
+            .getElementsIncludingDeleted()
+            .map((candidate) =>
+              candidate.id === element.id ? updatedElement : candidate,
+            ),
+          captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+        });
+        return { status: "applied", element: updatedElement };
+      } catch (error) {
+        this.rollbackCustomElementPreviews(addedPreviewIds);
+        throw error;
+      }
+    };
+
+  public updateCustomElementData: ExcalidrawImperativeAPI["updateCustomElementData"] =
+    async (elementId, updater, options) => {
+      const element = this.scene.getElement(elementId);
+      if (!element || element.isDeleted || !isCustomElement(element)) {
+        throw new Error(`Custom element \"${elementId}\" was not found`);
+      }
+      const data =
+        typeof updater === "function"
+          ? updater(element.data as never)
+          : updater;
+      const updatedElement = newElementWith(element, { data });
       this.updateScene({
         elements: this.scene
           .getElementsIncludingDeleted()
           .map((candidate) =>
             candidate.id === element.id ? updatedElement : candidate,
           ),
-        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+        captureUpdate:
+          options?.history === "ignore"
+            ? CaptureUpdateAction.NEVER
+            : CaptureUpdateAction.IMMEDIATELY,
       });
-      return updatedElement;
+      return updatedElement as never;
     };
 
   public activateCustomElement: ExcalidrawImperativeAPI["activateCustomElement"] =
@@ -6482,12 +6806,16 @@ class App extends React.Component<AppProps, AppState> {
 
     const initialScale = gesture.initialScale;
     if (initialScale) {
+      const gestureScale = Math.pow(event.scale, this.getZoomSensitivity());
+      const minZoom = this.state.scrollConstraints?.lockZoom
+        ? this.state.scrollConstraints.zoom
+        : MIN_ZOOM;
       this.translateCanvas((state) => ({
         ...getStateForZoom(
           {
             viewportX: this.lastViewportPosition.x,
             viewportY: this.lastViewportPosition.y,
-            nextZoom: getNormalizedZoom(initialScale * event.scale),
+            nextZoom: getNormalizedZoom(initialScale * gestureScale, minZoom),
           },
           state,
         ),
@@ -7306,9 +7634,15 @@ class App extends React.Component<AppProps, AppState> {
       this.state,
     );
 
+    const hitElement = this.getElementAtPosition(sceneX, sceneY);
+
     if (selectedElements.length === 1 && isLinearElement(selectedElements[0])) {
       const selectedLinearElement: ExcalidrawLinearElement =
         selectedElements[0];
+
+      if (!this.isDoubleClickEnabledFor(selectedLinearElement)) {
+        return;
+      }
 
       if (
         !event[KEYS.CTRL_OR_CMD] &&
@@ -7417,12 +7751,18 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     if (selectedElements.length === 1 && isImageElement(selectedElements[0])) {
+      if (!this.isDoubleClickEnabledFor(selectedElements[0])) {
+        return;
+      }
       this.startImageCropping(selectedElements[0]);
       return;
     }
 
-    const hitCustomElement = this.getElementAtPosition(sceneX, sceneY);
+    const hitCustomElement = hitElement;
     if (isCustomElement(hitCustomElement)) {
+      if (!this.isDoubleClickEnabledFor(hitCustomElement)) {
+        return;
+      }
       const [unrotatedX, unrotatedY] = pointRotateRads(
         pointFrom(sceneX, sceneY),
         pointFrom(
@@ -7462,13 +7802,14 @@ class App extends React.Component<AppProps, AppState> {
     const selectedGroupIds = getSelectedGroupIds(this.state);
 
     if (selectedGroupIds.length > 0) {
-      const hitElement = this.getElementAtPosition(sceneX, sceneY);
-
       const selectedGroupId =
         hitElement &&
         getSelectedGroupIdForElement(hitElement, this.state.selectedGroupIds);
 
       if (selectedGroupId) {
+        if (!this.isDoubleClickEnabledFor(hitElement)) {
+          return;
+        }
         this.store.scheduleCapture();
         this.setState((prevState) => ({
           ...prevState,
@@ -7488,9 +7829,10 @@ class App extends React.Component<AppProps, AppState> {
 
     resetCursor(this.interactiveCanvas);
     if (!event[KEYS.CTRL_OR_CMD] && !this.state.viewModeEnabled) {
-      const hitElement = this.getElementAtPosition(sceneX, sceneY);
-
       if (isIframeLikeElement(hitElement)) {
+        if (!this.isDoubleClickEnabledFor(hitElement)) {
+          return;
+        }
         this.setState({
           activeEmbeddable: { element: hitElement, state: "active" },
         });
@@ -7504,6 +7846,10 @@ class App extends React.Component<AppProps, AppState> {
           sceneX,
           sceneY,
         );
+
+        if (!this.isDoubleClickEnabledFor(container ?? hitElement)) {
+          return;
+        }
 
         if (container) {
           if (
@@ -8327,6 +8673,7 @@ class App extends React.Component<AppProps, AppState> {
             event.pointerType,
             this.scene.getNonDeletedElementsMap(),
             this.editorInterface,
+            this.getTransformHandleOmissions(),
           );
         if (
           elementWithTransformHandleType &&
@@ -8351,6 +8698,7 @@ class App extends React.Component<AppProps, AppState> {
         this.state.zoom,
         event.pointerType,
         this.editorInterface,
+        this.getTransformHandleOmissions(),
       );
       if (transformHandleType) {
         setCursor(
@@ -9383,14 +9731,19 @@ class App extends React.Component<AppProps, AppState> {
       gesture.lastCenter = center;
 
       const distance = getDistance(Array.from(gesture.pointers.values()));
-      const scaleFactor =
+      const rawScaleFactor =
         this.state.activeTool.type === "freedraw" && this.state.penMode
           ? 1
           : distance / gesture.initialDistance;
+      const scaleFactor = Math.pow(rawScaleFactor, this.getZoomSensitivity());
 
+      const minZoom = this.state.scrollConstraints?.lockZoom
+        ? this.state.scrollConstraints.zoom
+        : MIN_ZOOM;
       const nextZoom = scaleFactor
-        ? getNormalizedZoom(initialScale * scaleFactor)
+        ? getNormalizedZoom(initialScale * scaleFactor, minZoom)
         : this.state.zoom.value;
+      const shouldCacheIgnoreZoom = this.getShouldCacheIgnoreZoom();
 
       this.setState((state) => {
         // constrain the zoom and pan components separately: the zoom step is
@@ -9425,7 +9778,7 @@ class App extends React.Component<AppProps, AppState> {
               zoomedViewport.scrollX + (overscrollX + 2 * deltaX) / zoomValue,
             scrollY:
               zoomedViewport.scrollY + (overscrollY + 2 * deltaY) / zoomValue,
-            shouldCacheIgnoreZoom: true,
+            shouldCacheIgnoreZoom,
           },
           { zoomPreConstrained: true },
         );
@@ -9598,6 +9951,7 @@ class App extends React.Component<AppProps, AppState> {
             event.pointerType,
             this.scene.getNonDeletedElementsMap(),
             this.editorInterface,
+            this.getTransformHandleOmissions(),
           );
         if (elementWithTransformHandleType != null) {
           if (
@@ -9627,6 +9981,7 @@ class App extends React.Component<AppProps, AppState> {
           this.state.zoom,
           event.pointerType,
           this.editorInterface,
+          this.getTransformHandleOmissions(),
         );
       }
       if (pointerDownState.resize.handleType) {
@@ -13779,7 +14134,7 @@ class App extends React.Component<AppProps, AppState> {
         this.scene,
         shouldRotateWithDiscreteAngle(event),
         shouldResizeFromCenter(event),
-        selectedElements.some((element) => isImageElement(element))
+        selectedElements.some(hasScaleViewBox)
           ? !shouldMaintainAspectRatio(event)
           : shouldMaintainAspectRatio(event),
         resizeX,
@@ -13927,6 +14282,15 @@ class App extends React.Component<AppProps, AppState> {
       if (!this.isNavigationEnabled()) {
         return;
       }
+      const customOverlayItem =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>(
+              `.${CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS}`,
+            )
+          : null;
+      if (customOverlayItem?.dataset.customElementWheel === "overlay") {
+        return;
+      }
       if (
         !(
           event.target instanceof HTMLCanvasElement ||
@@ -13934,8 +14298,7 @@ class App extends React.Component<AppProps, AppState> {
           event.target instanceof HTMLIFrameElement ||
           (event.target instanceof HTMLElement &&
             event.target.classList.contains(CLASSES.FRAME_NAME)) ||
-          (event.target instanceof Element &&
-            event.target.closest(`.${CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS}`))
+          customOverlayItem
         )
       ) {
         // prevent zooming the browser (but allow scrolling DOM)
@@ -13963,11 +14326,13 @@ class App extends React.Component<AppProps, AppState> {
 
         const sign = Math.sign(deltaY);
         const MAX_STEP = ZOOM_STEP * 100;
-        const absDelta = Math.abs(deltaY);
+        const rawAbsDelta = Math.abs(deltaY);
         let delta = deltaY;
-        if (absDelta > MAX_STEP) {
+        if (rawAbsDelta > MAX_STEP) {
           delta = MAX_STEP * sign;
         }
+        delta *= this.getZoomSensitivity();
+        const absDelta = Math.abs(delta);
 
         let newZoom = this.state.zoom.value - delta / 100;
         // increase zoom steps the more zoomed-in we are (applies to >100% only)
@@ -13981,17 +14346,18 @@ class App extends React.Component<AppProps, AppState> {
           ? this.state.scrollConstraints.zoom
           : MIN_ZOOM;
         newZoom = Math.max(newZoom, minZoom);
+        const shouldCacheIgnoreZoom = this.getShouldCacheIgnoreZoom();
 
         this.translateCanvas((state) => ({
           ...getStateForZoom(
             {
               viewportX: this.lastViewportPosition.x,
               viewportY: this.lastViewportPosition.y,
-              nextZoom: getNormalizedZoom(newZoom),
+              nextZoom: getNormalizedZoom(newZoom, minZoom),
             },
             state,
           ),
-          shouldCacheIgnoreZoom: true,
+          shouldCacheIgnoreZoom,
         }));
         this.resetShouldCacheIgnoreZoomDebounced();
         return;
@@ -14079,8 +14445,38 @@ class App extends React.Component<AppProps, AppState> {
     });
   };
 
+  private lastZoomCacheRefresh: number | null = null;
+
+  private getZoomSensitivity = () => {
+    const sensitivity = this.props.zoomSensitivity ?? 1;
+    return Number.isFinite(sensitivity) && sensitivity > 0
+      ? clamp(sensitivity, 0.05, 4)
+      : 1;
+  };
+
+  private getShouldCacheIgnoreZoom = () => {
+    const strategy = this.props.zoomRenderStrategy ?? "throttled";
+    if (strategy === "live") {
+      return false;
+    }
+    if (strategy === "cached") {
+      return true;
+    }
+
+    const now = performance.now();
+    if (
+      this.lastZoomCacheRefresh === null ||
+      now - this.lastZoomCacheRefresh >= ZOOM_RENDER_THROTTLE_MS
+    ) {
+      this.lastZoomCacheRefresh = now;
+      return false;
+    }
+    return true;
+  };
+
   private resetShouldCacheIgnoreZoomDebounced = debounce(() => {
     if (!this.unmounted) {
+      this.lastZoomCacheRefresh = null;
       this.setState({ shouldCacheIgnoreZoom: false });
     }
   }, 300);

@@ -1,10 +1,11 @@
 import { registerCustomElement } from "@excalidraw/element";
 
 import type { CustomElementData } from "@excalidraw/element";
+import type { CustomElementValue } from "@excalidraw/element/types";
 
 import type {
+  CustomElementExtension,
   CustomElementOverlayDefinition,
-  CustomElementWithOverlays,
 } from "./types";
 
 type RegistryEntry = Readonly<{
@@ -13,6 +14,13 @@ type RegistryEntry = Readonly<{
 }>;
 
 const registry = new Map<string, Map<string, RegistryEntry>>();
+const lifecycleRegistry = new Map<
+  string,
+  Readonly<{
+    lifecycle: NonNullable<CustomElementExtension<any>["lifecycle"]>;
+    owner: symbol;
+  }>
+>();
 const listeners = new Set<() => void>();
 let revision = 0;
 
@@ -33,6 +41,9 @@ export const getCustomElementOverlays = (customType: string) =>
     registry.get(customType)?.values() ?? [],
     (entry) => entry.definition,
   );
+
+export const getCustomElementLifecycle = (customType: string) =>
+  lifecycleRegistry.get(customType)?.lifecycle ?? null;
 
 export const defineCustomElementOverlay = <
   TData extends CustomElementData,
@@ -123,19 +134,22 @@ export const unregisterCustomElementOverlays = (
   }
 };
 
-export const defineCustomElementWithOverlays = <
+export const defineCustomElementExtension = <
   TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
 >(
-  extension: CustomElementWithOverlays<TData>,
+  extension: CustomElementExtension<TData, TPreviewRequest>,
 ) => extension;
 
-export const registerCustomElementWithOverlays = <
+export const registerCustomElementExtension = <
   TData extends CustomElementData,
+  TPreviewRequest extends CustomElementValue = CustomElementValue,
 >(
-  extension: CustomElementWithOverlays<TData>,
+  extension: CustomElementExtension<TData, TPreviewRequest>,
 ) => {
   const unregisterElement = registerCustomElement(extension.definition);
   let unregisterOverlays: (() => void) | null = null;
+  const lifecycleOwner = Symbol(extension.definition.type);
   try {
     unregisterOverlays = extension.overlays?.length
       ? registerCustomElementOverlays(
@@ -143,12 +157,24 @@ export const registerCustomElementWithOverlays = <
           extension.overlays,
         )
       : null;
+    if (extension.lifecycle) {
+      lifecycleRegistry.set(extension.definition.type, {
+        lifecycle: extension.lifecycle,
+        owner: lifecycleOwner,
+      });
+      emit();
+    }
   } catch (error) {
     unregisterElement();
     throw error;
   }
 
   return () => {
+    const lifecycleEntry = lifecycleRegistry.get(extension.definition.type);
+    if (lifecycleEntry?.owner === lifecycleOwner) {
+      lifecycleRegistry.delete(extension.definition.type);
+      emit();
+    }
     unregisterOverlays?.();
     unregisterElement();
   };

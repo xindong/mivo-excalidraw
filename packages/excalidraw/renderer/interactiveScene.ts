@@ -1915,7 +1915,10 @@ const _renderInteractiveScene = ({
         appState.zoom,
         elementsMap,
         "mouse", // when we render we don't know which pointer type so use mouse,
-        getOmitSidesForEditorInterface(editorInterface),
+        {
+          ...getOmitSidesForEditorInterface(editorInterface),
+          rotation: !app.isRotationEnabled(),
+        },
       );
       if (
         !appState.viewModeEnabled &&
@@ -1978,12 +1981,10 @@ const _renderInteractiveScene = ({
         0 as Radians,
         appState.zoom,
         "mouse",
-        isFrameSelected
-          ? {
-              ...getOmitSidesForEditorInterface(editorInterface),
-              rotation: true,
-            }
-          : getOmitSidesForEditorInterface(editorInterface),
+        {
+          ...getOmitSidesForEditorInterface(editorInterface),
+          rotation: isFrameSelected || !app.isRotationEnabled(),
+        },
       );
       if (selectedElements.some((element) => !element.locked)) {
         renderTransformHandles(

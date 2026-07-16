@@ -208,6 +208,7 @@ export const constrainScrollState = (
     : MIN_ZOOM;
   const zoomValue = getNormalizedZoom(
     clamp(state.zoom.value, minZoom, MAX_ZOOM),
+    minZoom,
   );
 
   if (!scrollConstraints.lockScroll) {

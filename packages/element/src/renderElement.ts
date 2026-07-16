@@ -70,7 +70,9 @@ import { ShapeCache } from "./shape";
 import {
   createCustomElementDrawCommands,
   drawCustomElementCommandsToCanvas,
+  getCustomElementRenderer,
   getCustomElementRendererRevision,
+  getImageDrawRect,
 } from "./customElement";
 
 import type {
@@ -142,6 +144,7 @@ export interface ExcalidrawElementWithCanvas {
   canvas: HTMLCanvasElement;
   theme: AppState["theme"];
   scale: number;
+  requestedScale: number;
   zoomValue: AppState["zoom"]["value"];
   canvasOffsetX: number;
   canvasOffsetY: number;
@@ -150,10 +153,93 @@ export interface ExcalidrawElementWithCanvas {
   customRendererRevision: number;
 }
 
+const getCustomElementCanvasScale = (
+  element: NonDeletedExcalidrawElement,
+  zoom: Zoom,
+  renderConfig: StaticCanvasRenderConfig,
+) => {
+  if (element.type !== "custom") {
+    return zoom.value;
+  }
+  const strategy = getCustomElementRenderer(element.rendererId)?.cache;
+  if (!strategy || strategy.mode === "zoom") {
+    return zoom.value;
+  }
+  if (strategy.mode === "fixed") {
+    return Number.isFinite(strategy.scale) && strategy.scale > 0
+      ? strategy.scale
+      : 1;
+  }
+  if (!element.previewFileId) {
+    return 1;
+  }
+
+  const image = renderConfig.imageCache.get(element.previewFileId)?.image;
+  if (!image || image instanceof Promise) {
+    return 1;
+  }
+  const sourceWidth = image.naturalWidth;
+  const sourceHeight = image.naturalHeight;
+  if (!sourceWidth || !sourceHeight) {
+    return 1;
+  }
+
+  let scaleX = 1;
+  let scaleY = 1;
+  const stack: Array<readonly [number, number]> = [];
+  let sourceScale = 1;
+  const commands = createCustomElementDrawCommands(element, renderConfig.theme);
+  for (const command of commands) {
+    if (command.type === "save") {
+      stack.push([scaleX, scaleY]);
+    } else if (command.type === "restore") {
+      const restored = stack.pop();
+      if (restored) {
+        [scaleX, scaleY] = restored;
+      }
+    } else if (command.type === "scale") {
+      scaleX *= command.scaleX;
+      scaleY *= command.scaleY;
+    } else if (
+      command.type === "image" &&
+      command.fileId === element.previewFileId
+    ) {
+      const drawRect = getImageDrawRect(
+        sourceWidth,
+        sourceHeight,
+        command.x,
+        command.y,
+        command.width,
+        command.height,
+        command.fit,
+      );
+      const targetWidth = Math.abs(drawRect.width * scaleX);
+      const targetHeight = Math.abs(drawRect.height * scaleY);
+      if (targetWidth > 0 && targetHeight > 0) {
+        sourceScale = Math.max(
+          sourceScale,
+          Math.min(
+            sourceWidth / targetWidth / window.devicePixelRatio,
+            sourceHeight / targetHeight / window.devicePixelRatio,
+          ),
+        );
+      }
+    }
+  }
+
+  const maxScale =
+    strategy.maxScale !== undefined &&
+    Number.isFinite(strategy.maxScale) &&
+    strategy.maxScale > 0
+      ? strategy.maxScale
+      : 4;
+  return Math.min(sourceScale, maxScale);
+};
+
 const cappedElementCanvasSize = (
   element: NonDeletedExcalidrawElement,
   elementsMap: ElementsMap,
-  zoom: Zoom,
+  requestedScale: number,
 ): {
   width: number;
   height: number;
@@ -184,7 +270,7 @@ const cappedElementCanvasSize = (
   let width = elementWidth * window.devicePixelRatio + padding * 2;
   let height = elementHeight * window.devicePixelRatio + padding * 2;
 
-  let scale: number = zoom.value;
+  let scale = requestedScale;
 
   // rescale to ensure width and height is within limits
   if (
@@ -211,6 +297,7 @@ const generateElementCanvas = (
   zoom: Zoom,
   renderConfig: StaticCanvasRenderConfig,
   appState: StaticCanvasAppState | InteractiveCanvasAppState,
+  requestedScale = getCustomElementCanvasScale(element, zoom, renderConfig),
 ): ExcalidrawElementWithCanvas | null => {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d")!;
@@ -219,7 +306,7 @@ const generateElementCanvas = (
   const { width, height, scale } = cappedElementCanvasSize(
     element,
     elementsMap,
-    zoom,
+    requestedScale,
   );
 
   if (!width || !height) {
@@ -266,6 +353,7 @@ const generateElementCanvas = (
     canvas,
     theme: appState.theme,
     scale,
+    requestedScale,
     zoomValue: zoom.value,
     canvasOffsetX,
     canvasOffsetY,
@@ -568,10 +656,23 @@ const generateElementWithCanvas = (
         value: 1 as NormalizedZoomValue,
       };
   const prevElementWithCanvas = elementWithCanvasCache.get(element);
+  const customCacheStrategy =
+    element.type === "custom"
+      ? getCustomElementRenderer(element.rendererId)?.cache
+      : null;
+  const requestedScale = getCustomElementCanvasScale(
+    element,
+    zoom,
+    renderConfig,
+  );
   const shouldRegenerateBecauseZoom =
     prevElementWithCanvas &&
     prevElementWithCanvas.zoomValue !== zoom.value &&
-    !appState?.shouldCacheIgnoreZoom;
+    !appState?.shouldCacheIgnoreZoom &&
+    (!customCacheStrategy || customCacheStrategy.mode === "zoom");
+  const shouldRegenerateBecauseCustomScale =
+    element.type === "custom" &&
+    prevElementWithCanvas?.requestedScale !== requestedScale;
   const imageCrop = isImageElement(element) ? element.crop : null;
 
   const containingFrameOpacity =
@@ -580,6 +681,7 @@ const generateElementWithCanvas = (
   if (
     !prevElementWithCanvas ||
     shouldRegenerateBecauseZoom ||
+    shouldRegenerateBecauseCustomScale ||
     prevElementWithCanvas.theme !== appState.theme ||
     prevElementWithCanvas.imageCrop !== imageCrop ||
     prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity ||
@@ -593,6 +695,7 @@ const generateElementWithCanvas = (
       zoom,
       renderConfig,
       appState,
+      requestedScale,
     );
 
     if (!elementWithCanvas) {

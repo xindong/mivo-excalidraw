@@ -629,8 +629,16 @@ const connectElements = (
     throw invalidCanvasOperation("Canvas connector could not be created");
   }
   const boundArrow = newElementWith(arrow, {
-    startBinding: { elementId: from.id, focus: 0, gap: 8 },
-    endBinding: { elementId: to.id, focus: 0, gap: 8 },
+    startBinding: {
+      elementId: from.id,
+      fixedPoint: [0.5, 0.5],
+      mode: "orbit",
+    },
+    endBinding: {
+      elementId: to.id,
+      fixedPoint: [0.5, 0.5],
+      mode: "orbit",
+    },
   });
   const connectedElements = created.map((element) =>
     element.id === arrow.id ? boundArrow : element,

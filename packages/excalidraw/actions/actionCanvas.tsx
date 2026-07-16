@@ -177,13 +177,16 @@ export const actionZoomOut = register({
   trackEvent: { category: "canvas" },
   predicate: (elements, appState, appProps, app) => app.isNavigationEnabled(),
   perform: (_elements, appState, _, app) => {
+    const minZoom = appState.scrollConstraints?.lockZoom
+      ? appState.scrollConstraints.zoom
+      : MIN_ZOOM;
     const nextState = {
       ...appState,
       ...getStateForZoom(
         {
           viewportX: appState.width / 2 + appState.offsetLeft,
           viewportY: appState.height / 2 + appState.offsetTop,
-          nextZoom: getNormalizedZoom(appState.zoom.value - ZOOM_STEP),
+          nextZoom: getNormalizedZoom(appState.zoom.value - ZOOM_STEP, minZoom),
         },
         appState,
       ),
@@ -196,6 +199,11 @@ export const actionZoomOut = register({
   },
   PanelComponent: ({ updateData }) => {
     const zoomValue = useAppStateValue((appState) => appState.zoom.value);
+    const minZoom = useAppStateValue((appState) =>
+      appState.scrollConstraints?.lockZoom
+        ? appState.scrollConstraints.zoom
+        : MIN_ZOOM,
+    );
     return (
       <IconButton
         type="button"
@@ -203,7 +211,7 @@ export const actionZoomOut = register({
         icon={ZoomOutIcon}
         title={`${t("buttons.zoomOut")} — ${getShortcutKey("CtrlOrCmd+-")}`}
         aria-label={t("buttons.zoomOut")}
-        disabled={zoomValue <= MIN_ZOOM}
+        disabled={zoomValue <= minZoom}
         onClick={() => {
           updateData(null);
         }}
@@ -235,7 +243,7 @@ export const actionResetZoom = register({
         {
           viewportX: appState.width / 2 + appState.offsetLeft,
           viewportY: appState.height / 2 + appState.offsetTop,
-          nextZoom: getNormalizedZoom(nextZoom),
+          nextZoom: getNormalizedZoom(nextZoom, nextZoom),
         },
         appState,
       ),
