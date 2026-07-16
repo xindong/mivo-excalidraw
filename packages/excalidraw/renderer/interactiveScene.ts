@@ -27,7 +27,6 @@ import {
   elementCenterPoint,
   getDiamondBaseCorners,
   FOCUS_POINT_SIZE,
-  getOmitSidesForEditorInterface,
   getTransformHandles,
   getTransformHandlesFromCoords,
   hasBoundingBox,
@@ -44,6 +43,7 @@ import {
   LinearElementEditor,
   getActiveTextElement,
   getElementsInGroup,
+  getCustomElementSelectionStyle,
   getSelectedGroupIds,
   isSelectedViaGroup,
   selectGroupsFromGivenElements,
@@ -1867,6 +1867,8 @@ const _renderInteractiveScene = ({
               element.id === appState.croppingElementId ||
               isImageElement(element)
                 ? 0
+                : element.type === "custom"
+                ? getCustomElementSelectionStyle(element)?.padding
                 : undefined,
           });
         }
@@ -1915,10 +1917,7 @@ const _renderInteractiveScene = ({
         appState.zoom,
         elementsMap,
         "mouse", // when we render we don't know which pointer type so use mouse,
-        {
-          ...getOmitSidesForEditorInterface(editorInterface),
-          rotation: !app.isRotationEnabled(),
-        },
+        app.getTransformHandleOmissions(selectedElements),
       );
       if (
         !appState.viewModeEnabled &&
@@ -1982,7 +1981,7 @@ const _renderInteractiveScene = ({
         appState.zoom,
         "mouse",
         {
-          ...getOmitSidesForEditorInterface(editorInterface),
+          ...app.getTransformHandleOmissions(selectedElements),
           rotation: isFrameSelected || !app.isRotationEnabled(),
         },
       );

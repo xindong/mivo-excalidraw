@@ -708,6 +708,15 @@ export type DoubleClickCapability =
       elementTypes?: Partial<Record<ExcalidrawElementType, boolean>>;
     };
 
+export type ElementTransformCapability =
+  | boolean
+  | {
+      /** Fallback for element types without an explicit override. */
+      default?: boolean;
+      /** Per-element-type overrides. */
+      elementTypes?: Partial<Record<ExcalidrawElementType, boolean>>;
+    };
+
 export type ExcalidrawCapabilities = {
   transforms?: {
     /**
@@ -717,6 +726,14 @@ export type ExcalidrawCapabilities = {
      * @default true
      */
     rotation?: boolean;
+    /**
+     * Whether resize handles are rendered and accept pointer input. Supports
+     * a global value or per-element-type overrides. Programmatic element
+     * transforms remain supported.
+     *
+     * @default true
+     */
+    resize?: ElementTransformCapability;
   };
   /**
    * Controls whether canvas double-click actions are handled globally or by
@@ -1169,6 +1186,7 @@ export type AppClassProperties = {
   onPointerUpEmitter: App["onPointerUpEmitter"];
   updateEditorAtom: App["updateEditorAtom"];
   isRotationEnabled: App["isRotationEnabled"];
+  getTransformHandleOmissions: App["getTransformHandleOmissions"];
   onPointerDownEmitter: App["onPointerDownEmitter"];
   onEvent: App["onEvent"];
   onStateChange: App["onStateChange"];

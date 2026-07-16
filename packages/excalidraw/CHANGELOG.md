@@ -13,6 +13,13 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.2
+
+### Mivo fork features
+
+- Added per-element-type resize capabilities that consistently control handle rendering, hover hit testing, and pointer-driven resizing while preserving programmatic transforms.
+- Added Custom Element renderer selection geometry for configuring selection-border padding and transform-handle margin/spacing.
+
 ## 0.18.1-mivo.1
 
 ### Mivo fork features

@@ -4,6 +4,7 @@ import {
   createCustomElementDrawCommands,
   drawCustomElementCommandsToCanvas,
   drawCustomElementCommandsToSvg,
+  getCustomElementSelectionStyle,
   registerCustomElementRenderer,
 } from "../src/customElement";
 
@@ -77,6 +78,26 @@ describe("custom element renderer viewBox", () => {
         height: 132,
       }),
     ]);
+  });
+
+  it("exposes normalized selection geometry from the renderer", () => {
+    unregisterRenderers.push(
+      registerCustomElementRenderer({
+        id: "test.selection",
+        selection: {
+          padding: 0,
+          transformHandles: { margin: 0, spacing: 0 },
+        },
+        render: () => undefined,
+      }),
+    );
+
+    expect(
+      getCustomElementSelectionStyle(customElement("test.selection", 200, 132)),
+    ).toEqual({
+      padding: 0,
+      transformHandles: { margin: 0, spacing: 0 },
+    });
   });
 
   it("applies scale commands to Canvas and SVG consumers", () => {

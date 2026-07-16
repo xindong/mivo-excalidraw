@@ -46,6 +46,13 @@ const isInsideTransformHandle = (
   y >= transformHandle[1] &&
   y <= transformHandle[1] + transformHandle[3];
 
+const areAllResizeHandlesOmitted = (omitSides: {
+  [T in TransformHandleType]?: boolean;
+}) =>
+  (["n", "s", "e", "w", "nw", "ne", "sw", "se"] as const).every(
+    (handle) => omitSides[handle],
+  );
+
 export const resizeTest = <Point extends GlobalPoint | LocalPoint>(
   element: NonDeletedExcalidrawElement,
   elementsMap: ElementsMap,
@@ -84,6 +91,10 @@ export const resizeTest = <Point extends GlobalPoint | LocalPoint>(
 
   if (filter.length > 0) {
     return filter[0] as TransformHandleType;
+  }
+
+  if (areAllResizeHandlesOmitted(omitSides)) {
+    return false;
   }
 
   if (canResizeFromSides(editorInterface)) {
@@ -137,23 +148,29 @@ export const getElementWithTransformHandleType = (
     [T in TransformHandleType]?: boolean;
   } = getOmitSidesForEditorInterface(editorInterface),
 ) => {
-  return elements.reduce((result, element) => {
-    if (result) {
-      return result;
-    }
-    const transformHandleType = resizeTest(
-      element,
-      elementsMap,
-      appState,
-      scenePointerX,
-      scenePointerY,
-      zoom,
-      pointerType,
-      editorInterface,
-      omitSides,
-    );
-    return transformHandleType ? { element, transformHandleType } : null;
-  }, null as { element: NonDeletedExcalidrawElement; transformHandleType: MaybeTransformHandleType } | null);
+  return elements.reduce(
+    (result, element) => {
+      if (result) {
+        return result;
+      }
+      const transformHandleType = resizeTest(
+        element,
+        elementsMap,
+        appState,
+        scenePointerX,
+        scenePointerY,
+        zoom,
+        pointerType,
+        editorInterface,
+        omitSides,
+      );
+      return transformHandleType ? { element, transformHandleType } : null;
+    },
+    null as {
+      element: NonDeletedExcalidrawElement;
+      transformHandleType: MaybeTransformHandleType;
+    } | null,
+  );
 };
 
 export const getTransformHandleTypeFromCoords = <
@@ -188,6 +205,10 @@ export const getTransformHandleTypeFromCoords = <
 
   if (found) {
     return found as MaybeTransformHandleType;
+  }
+
+  if (areAllResizeHandlesOmitted(omitSides)) {
+    return false;
   }
 
   if (canResizeFromSides(editorInterface)) {

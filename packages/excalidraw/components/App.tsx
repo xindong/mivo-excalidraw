@@ -228,6 +228,7 @@ import {
   getElementWithTransformHandleType,
   getTransformHandleTypeFromCoords,
   getOmitSidesForEditorInterface,
+  OMIT_ALL_RESIZE_HANDLES,
   dragNewElement,
   dragSelectedElements,
   getDragOffsetXY,
@@ -370,6 +371,7 @@ import { History } from "../history";
 import { defaultLang, getLanguage, languages, setLanguage, t } from "../i18n";
 import {
   isDoubleClickEnabled as isDoubleClickCapabilityEnabled,
+  isResizeEnabled as isResizeCapabilityEnabled,
   isRotationEnabled as isRotationCapabilityEnabled,
 } from "../capabilities";
 
@@ -1031,9 +1033,15 @@ class App extends React.Component<AppProps, AppState> {
     return isRotationCapabilityEnabled(props.capabilities);
   }
 
-  private getTransformHandleOmissions() {
+  public getTransformHandleOmissions(
+    elements: readonly Pick<ExcalidrawElement, "type">[],
+  ) {
+    const resizeEnabled = elements.every((element) =>
+      isResizeCapabilityEnabled(this.props.capabilities, element.type),
+    );
     return {
       ...getOmitSidesForEditorInterface(this.editorInterface),
+      ...(resizeEnabled ? {} : OMIT_ALL_RESIZE_HANDLES),
       rotation: !this.isRotationEnabled(),
     };
   }
@@ -8673,7 +8681,7 @@ class App extends React.Component<AppProps, AppState> {
             event.pointerType,
             this.scene.getNonDeletedElementsMap(),
             this.editorInterface,
-            this.getTransformHandleOmissions(),
+            this.getTransformHandleOmissions(selectedElements),
           );
         if (
           elementWithTransformHandleType &&
@@ -8698,7 +8706,7 @@ class App extends React.Component<AppProps, AppState> {
         this.state.zoom,
         event.pointerType,
         this.editorInterface,
-        this.getTransformHandleOmissions(),
+        this.getTransformHandleOmissions(selectedElements),
       );
       if (transformHandleType) {
         setCursor(
@@ -9951,7 +9959,7 @@ class App extends React.Component<AppProps, AppState> {
             event.pointerType,
             this.scene.getNonDeletedElementsMap(),
             this.editorInterface,
-            this.getTransformHandleOmissions(),
+            this.getTransformHandleOmissions(selectedElements),
           );
         if (elementWithTransformHandleType != null) {
           if (
@@ -9981,7 +9989,7 @@ class App extends React.Component<AppProps, AppState> {
           this.state.zoom,
           event.pointerType,
           this.editorInterface,
-          this.getTransformHandleOmissions(),
+          this.getTransformHandleOmissions(selectedElements),
         );
       }
       if (pointerDownState.resize.handleType) {

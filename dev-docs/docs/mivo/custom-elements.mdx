@@ -17,6 +17,10 @@ const definition = defineCustomElement({
   renderer: {
     id: "example.asset.card",
     cache: { mode: "source", maxScale: 4 },
+    selection: {
+      padding: 0,
+      transformHandles: { margin: 0, spacing: 0 },
+    },
     render: ({ element, painter, viewBox }) => {
       painter.rect(0, 0, viewBox.width, viewBox.height, {
         fill: "#fff",
@@ -43,6 +47,34 @@ const unregister = registerCustomElementExtension(extension);
 ```
 
 React applications may call `useRegisterCustomElement(extension)` instead.
+
+## Selection and resize policy
+
+Custom renderers may define the visual geometry of their selection affordances:
+
+```ts
+selection: {
+  padding: 0,
+  transformHandles: { margin: 0, spacing: 0 },
+}
+```
+
+The host independently controls whether pointer-driven resizing is available. The capability accepts a boolean or per-element-type overrides, and applies consistently to rendered handles, hover cursors, and pointer hit testing:
+
+```tsx
+<Excalidraw
+  capabilities={{
+    transforms: {
+      resize: {
+        default: true,
+        elementTypes: { custom: false },
+      },
+    },
+  }}
+/>
+```
+
+Disabling user resize does not prevent programmatic updates through scene or Canvas Core APIs.
 
 ## Original resources and previews
 

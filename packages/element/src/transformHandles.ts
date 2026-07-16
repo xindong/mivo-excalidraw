@@ -14,6 +14,7 @@ import type {
 import type { Bounds } from "@excalidraw/common";
 
 import { getElementAbsoluteCoords } from "./bounds";
+import { getCustomElementSelectionStyle } from "./customElement";
 import {
   isElbowArrow,
   isFrameLikeElement,
@@ -66,6 +67,17 @@ export const OMIT_SIDES_FOR_MULTIPLE_ELEMENTS = {
   s: true,
   n: true,
   w: true,
+};
+
+export const OMIT_ALL_RESIZE_HANDLES = {
+  n: true,
+  s: true,
+  e: true,
+  w: true,
+  nw: true,
+  ne: true,
+  sw: true,
+  se: true,
 };
 
 export const OMIT_SIDES_FOR_FRAME = {
@@ -309,11 +321,24 @@ export const getTransformHandles = (
       rotation: true,
     };
   }
-  const margin = isLinearElement(element)
+  const customSelection =
+    element.type === "custom" ? getCustomElementSelectionStyle(element) : null;
+  const defaultMargin = isLinearElement(element)
     ? DEFAULT_TRANSFORM_HANDLE_SPACING + 8
     : isImageElement(element)
     ? 0
     : DEFAULT_TRANSFORM_HANDLE_SPACING;
+  const defaultSpacing = isImageElement(element)
+    ? 0
+    : DEFAULT_TRANSFORM_HANDLE_SPACING;
+  const margin = nonNegativeOr(
+    customSelection?.transformHandles?.margin,
+    defaultMargin,
+  );
+  const spacing = nonNegativeOr(
+    customSelection?.transformHandles?.spacing,
+    defaultSpacing,
+  );
   return getTransformHandlesFromCoords(
     getElementAbsoluteCoords(element, elementsMap, true),
     element.angle,
@@ -321,9 +346,14 @@ export const getTransformHandles = (
     pointerType,
     omitSides,
     margin,
-    isImageElement(element) ? 0 : undefined,
+    spacing,
   );
 };
+
+const nonNegativeOr = (value: number | undefined, fallback: number) =>
+  value !== undefined && Number.isFinite(value) && value >= 0
+    ? value
+    : fallback;
 
 export const hasBoundingBox = (
   elements: readonly NonDeletedExcalidrawElement[],

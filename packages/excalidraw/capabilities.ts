@@ -6,6 +6,26 @@ export const isRotationEnabled = (
   capabilities: ExcalidrawCapabilities | undefined,
 ) => capabilities?.transforms?.rotation !== false;
 
+export const isResizeEnabled = (
+  capabilities: ExcalidrawCapabilities | undefined,
+  elementType: ExcalidrawElementType,
+) => {
+  const config = capabilities?.transforms?.resize;
+
+  if (typeof config === "boolean") {
+    return config;
+  }
+
+  return config?.elementTypes?.[elementType] ?? config?.default ?? true;
+};
+
+const isResizeEnabledByDefault = (
+  capabilities: ExcalidrawCapabilities | undefined,
+) => {
+  const config = capabilities?.transforms?.resize;
+  return typeof config === "boolean" ? config : config?.default ?? true;
+};
+
 export const isDoubleClickEnabled = (
   capabilities: ExcalidrawCapabilities | undefined,
   elementType: ExcalidrawElementType | null,
@@ -32,6 +52,30 @@ export const areCapabilitiesEqual = (
   }
 
   if (isRotationEnabled(prev) !== isRotationEnabled(next)) {
+    return false;
+  }
+
+  const resizeElementTypes = new Set([
+    ...Object.keys(
+      typeof prev?.transforms?.resize === "object"
+        ? prev.transforms.resize.elementTypes ?? {}
+        : {},
+    ),
+    ...Object.keys(
+      typeof next?.transforms?.resize === "object"
+        ? next.transforms.resize.elementTypes ?? {}
+        : {},
+    ),
+  ]) as Set<ExcalidrawElementType>;
+
+  if (
+    ![...resizeElementTypes].every(
+      (elementType) =>
+        isResizeEnabled(prev, elementType) ===
+        isResizeEnabled(next, elementType),
+    ) ||
+    isResizeEnabledByDefault(prev) !== isResizeEnabledByDefault(next)
+  ) {
     return false;
   }
 

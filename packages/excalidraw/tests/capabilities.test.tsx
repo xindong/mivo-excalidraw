@@ -4,7 +4,11 @@ import { arrayToMap, CURSOR_TYPE } from "@excalidraw/common";
 import { getTransformHandles } from "@excalidraw/element";
 
 import { Excalidraw } from "../index";
-import { areCapabilitiesEqual, isDoubleClickEnabled } from "../capabilities";
+import {
+  areCapabilitiesEqual,
+  isDoubleClickEnabled,
+  isResizeEnabled,
+} from "../capabilities";
 
 import { API } from "./helpers/api";
 import { Pointer, UI } from "./helpers/ui";
@@ -53,6 +57,37 @@ describe("capability resolution", () => {
         {
           transforms: { rotation: false },
           doubleClick: { canvas: false, elementTypes: { image: false } },
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("resolves resize overrides by element type", () => {
+    const capabilities = {
+      transforms: {
+        resize: {
+          default: true,
+          elementTypes: { custom: false },
+        },
+      },
+    } as const;
+
+    expect(isResizeEnabled(capabilities, "custom")).toBe(false);
+    expect(isResizeEnabled(capabilities, "rectangle")).toBe(true);
+  });
+
+  it("compares resize capability configs semantically", () => {
+    expect(
+      areCapabilitiesEqual(
+        {
+          transforms: {
+            resize: { default: true, elementTypes: { custom: false } },
+          },
+        },
+        {
+          transforms: {
+            resize: { elementTypes: { custom: false } },
+          },
         },
       ),
     ).toBe(true);
@@ -164,5 +199,51 @@ describe("rotation capability", () => {
 
     expect(first.angle).toBe(0);
     expect(second.angle).toBe(0);
+  });
+});
+
+describe("resize capability", () => {
+  it("removes resize pointer interaction for a configured element type", async () => {
+    await render(
+      <Excalidraw
+        capabilities={{
+          transforms: { resize: { elementTypes: { custom: false } } },
+        }}
+      />,
+    );
+    const custom = API.createElement({
+      type: "custom",
+      width: 200,
+      height: 100,
+      customType: "test.custom",
+      rendererId: "test.custom",
+    });
+    API.setElements([custom]);
+
+    UI.resize(custom, "se", [50, 50]);
+
+    expect(h.elements[0].width).toBe(200);
+    expect(h.elements[0].height).toBe(100);
+  });
+
+  it("keeps resize handles for element types without an override", async () => {
+    await render(
+      <Excalidraw
+        capabilities={{
+          transforms: { resize: { elementTypes: { custom: false } } },
+        }}
+      />,
+    );
+    const rectangle = UI.createElement("rectangle", {
+      width: 200,
+      height: 100,
+    });
+
+    expect(h.app.getTransformHandleOmissions([rectangle])).not.toMatchObject({
+      nw: true,
+      ne: true,
+      sw: true,
+      se: true,
+    });
   });
 });

@@ -29,6 +29,16 @@ export type CustomElementCacheStrategy =
   | Readonly<{ mode: "fixed"; scale: number }>
   | Readonly<{ mode: "source"; maxScale?: number }>;
 
+export type CustomElementSelectionStyle = Readonly<{
+  /** Canvas selection-border padding in viewport pixels. */
+  padding?: number;
+  /** Optional geometry for resize handles rendered around this element. */
+  transformHandles?: Readonly<{
+    margin?: number;
+    spacing?: number;
+  }>;
+}>;
+
 export type TypedExcalidrawCustomElement<
   TData extends CustomElementData = CustomElementData,
 > = Omit<ExcalidrawCustomElement, "data"> & Readonly<{ data: TData }>;
@@ -388,6 +398,8 @@ export type CustomElementRenderer<
   id: string;
   /** Controls the resolution and zoom invalidation of the element canvas. */
   cache?: CustomElementCacheStrategy;
+  /** Controls selection-border and transform-handle geometry. */
+  selection?: CustomElementSelectionStyle;
   /**
    * Optional logical coordinate system used by the renderer. When provided,
    * all painter commands are scaled from this viewBox to the element's current
@@ -505,6 +517,31 @@ export const unregisterCustomElementRenderer = (rendererId: string) => {
 
 export const getCustomElementRenderer = (rendererId: string) =>
   rendererRegistry.get(rendererId) ?? null;
+
+export const getCustomElementSelectionStyle = (
+  element: Pick<ExcalidrawCustomElement, "rendererId">,
+) => {
+  const selection = getCustomElementRenderer(element.rendererId)?.selection;
+  if (!selection) {
+    return null;
+  }
+  return {
+    padding: nonNegativeSelectionValue(selection.padding),
+    transformHandles: selection.transformHandles
+      ? {
+          margin: nonNegativeSelectionValue(selection.transformHandles.margin),
+          spacing: nonNegativeSelectionValue(
+            selection.transformHandles.spacing,
+          ),
+        }
+      : undefined,
+  };
+};
+
+const nonNegativeSelectionValue = (value: number | undefined) =>
+  value !== undefined && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
 
 export const getCustomElementDefinition = (customType: string) =>
   definitionRegistry.get(customType) ?? null;
