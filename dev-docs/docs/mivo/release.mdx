@@ -29,13 +29,13 @@ import "@miragari/mivo-excalidraw/index.css";
 Stage without publishing:
 
 ```bash
-npm run release:mivo -- --version=0.18.1-mivo.3
+npm run release:mivo -- --version=0.18.1-mivo.4
 ```
 
 Publish after inspecting `.mivo-release/`:
 
 ```bash
-npm run release:mivo -- --version=0.18.1-mivo.3 --publish
+npm run release:mivo -- --version=0.18.1-mivo.4 --publish
 ```
 
 The script publishes the workspace dependency packages first and `@miragari/mivo-excalidraw` last, all with `--tag mivo`.
@@ -43,8 +43,8 @@ The script publishes the workspace dependency packages first and `@miragari/mivo
 After publication, tag the exact release commit:
 
 ```bash
-git tag v0.18.1-mivo.3
-git push origin v0.18.1-mivo.3
+git tag v0.18.1-mivo.4
+git push origin v0.18.1-mivo.4
 ```
 
 Do not publish from a dirty worktree or reuse an npm version.

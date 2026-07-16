@@ -4,7 +4,9 @@ import {
   createCustomElementDrawCommands,
   drawCustomElementCommandsToCanvas,
   drawCustomElementCommandsToSvg,
+  getCustomElementFileImportDefinitions,
   getCustomElementSelectionStyle,
+  registerCustomElement,
   registerCustomElementRenderer,
 } from "../src/customElement";
 
@@ -126,6 +128,43 @@ describe("custom element renderer viewBox", () => {
     expect(svg.firstElementChild?.getAttribute("transform")).toBe(
       "scale(0.5 0.25)",
     );
+  });
+});
+
+describe("custom element file import matching", () => {
+  const unregisterDefinitions: Array<() => void> = [];
+
+  afterEach(() => {
+    unregisterDefinitions.splice(0).forEach((unregister) => unregister());
+  });
+
+  it("returns only registered import definitions that accept the file", () => {
+    unregisterDefinitions.push(
+      registerCustomElement({
+        type: "test.image-card",
+        schemaVersion: 1,
+        rendererId: "test.image-card",
+        file: {
+          accept: ["image/*"],
+          import: async () => ({ data: {} }),
+        },
+      }),
+      registerCustomElement({
+        type: "test.audio-card",
+        schemaVersion: 1,
+        rendererId: "test.audio-card",
+        file: {
+          accept: ["audio/*"],
+          import: async () => ({ data: {} }),
+        },
+      }),
+    );
+
+    expect(
+      getCustomElementFileImportDefinitions(
+        new File(["image"], "sample.png", { type: "image/png" }),
+      ).map(({ type }) => type),
+    ).toEqual(["test.image-card"]);
   });
 });
 

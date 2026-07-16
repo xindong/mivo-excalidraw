@@ -263,6 +263,7 @@ import {
   getBindingStrategyForDraggingBindingElementEndpoints,
   isNonDeletedElement,
   getCustomElementDefinition,
+  getCustomElementFileImportDefinitions,
   getCustomElementRenderer,
   customElementDefinitionAcceptsFile,
   type CustomElementPreviewOutput,
@@ -4336,7 +4337,7 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     // ------------------- Images or SVG code -------------------
-    const imageFiles = dataTransferFiles.map((data) => data.file);
+    let imageFiles = dataTransferFiles.map((data) => data.file);
 
     if (imageFiles.length === 0 && data.text && !isPlainPaste) {
       const trimmedText = data.text.trim();
@@ -4344,6 +4345,35 @@ class App extends React.Component<AppProps, AppState> {
         // ignore SVG validation/normalization which will be done during image
         // initialization
         imageFiles.push(SVGStringToFile(trimmedText));
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      const customPasteFiles = imageFiles.flatMap((file) => {
+        const customType = this.resolveCustomElementPasteType(file);
+        return customType ? [{ file, customType }] : [];
+      });
+      if (customPasteFiles.length > 0) {
+        try {
+          await this.insertCustomElementsFromPaste(
+            customPasteFiles,
+            sceneX,
+            sceneY,
+          );
+        } catch (error) {
+          this.setState({
+            errorMessage:
+              error instanceof Error
+                ? error.message
+                : "Failed to import pasted Custom Element files",
+          });
+          return;
+        }
+        const handledFiles = new Set(customPasteFiles.map(({ file }) => file));
+        imageFiles = imageFiles.filter((file) => !handledFiles.has(file));
+        if (imageFiles.length === 0) {
+          return;
+        }
       }
     }
 
@@ -4456,6 +4486,83 @@ class App extends React.Component<AppProps, AppState> {
     // ------------------- Text -------------------
     this.addTextFromPaste(data.text, isPlainPaste);
   }
+
+  private resolveCustomElementPasteType = (file: File) => {
+    const config = this.props.customElementFileImport?.paste;
+    if (!config) {
+      return null;
+    }
+    const definitions = getCustomElementFileImportDefinitions(file);
+    if (definitions.length === 0) {
+      return null;
+    }
+    const candidates = definitions.map(({ type }) => ({ customType: type }));
+    const resolved =
+      typeof config === "object" && config.resolve
+        ? config.resolve({ file, candidates })
+        : definitions.length === 1
+        ? definitions[0].type
+        : null;
+    if (resolved === null) {
+      return null;
+    }
+    if (!definitions.some(({ type }) => type === resolved)) {
+      throw new Error(
+        `Custom Element paste resolver returned an unsupported type: "${resolved}"`,
+      );
+    }
+    return resolved;
+  };
+
+  private insertCustomElementsFromPaste = async (
+    items: readonly Readonly<{ file: File; customType: string }>[],
+    sceneX: number,
+    sceneY: number,
+  ) => {
+    const groups = new Map<string, File[]>();
+    for (const { file, customType } of items) {
+      const files = groups.get(customType) ?? [];
+      files.push(file);
+      groups.set(customType, files);
+    }
+
+    const inserted: Ordered<NonDeleted<ExcalidrawCustomElement>>[] = [];
+    let cursorX: number | null = null;
+    for (const [customType, files] of groups) {
+      const groupStartX = cursorX;
+      const elements = await this.insertCustomElementsFromFilesInternal({
+        customType,
+        files,
+        select: false,
+        layout: (layoutItems) => {
+          const totalWidth =
+            layoutItems.reduce((sum, item) => sum + item.width, 0) +
+            Math.max(0, layoutItems.length - 1) * 24;
+          let x = groupStartX ?? sceneX - totalWidth / 2;
+          return layoutItems.map((item) => {
+            const position = { x, y: sceneY - item.height / 2 };
+            x += item.width + 24;
+            return position;
+          });
+        },
+      });
+      inserted.push(...elements);
+      cursorX =
+        elements.reduce(
+          (right, element) => Math.max(right, element.x + element.width),
+          cursorX ?? sceneX,
+        ) + 24;
+    }
+
+    if (inserted.length > 0) {
+      this.setState({
+        selectedElementIds: Object.fromEntries(
+          inserted.map((element) => [element.id, true]),
+        ),
+      });
+    }
+    return inserted;
+  };
 
   public pasteFromClipboard = withBatchedUpdates(
     async (event: ClipboardEvent) => {

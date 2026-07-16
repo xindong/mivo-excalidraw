@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.4
+
+### Mivo fork features
+
+- Added opt-in clipboard-file routing through registered Custom Element file definitions, with native fallback and host resolution for ambiguous matches.
+
 ## 0.18.1-mivo.3
 
 ### Mivo fork features

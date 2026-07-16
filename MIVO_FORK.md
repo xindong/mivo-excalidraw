@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.3`
+- Current prerelease: `0.18.1-mivo.4`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -91,6 +91,8 @@ The Excalidraw API adds:
 - `updateCustomElementData()`
 - `activateCustomElement()`
 - `customElementOverlays`
+
+Hosts may opt clipboard files into registered Custom Element definitions with `customElementFileImport.paste`. The core routes normalized files before the native image importer, falls back when no definition matches, and exposes a resolver for ambiguous matches.
 
 Batch import is atomic for one `customType` invocation. Mixed media in the fixture is intentionally implemented as multiple type-specific batches; it is not a cross-type transaction.
 

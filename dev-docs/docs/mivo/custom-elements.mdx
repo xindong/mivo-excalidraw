@@ -170,3 +170,31 @@ const elements = await api.insertCustomElementsFromFiles({
 All files are imported before one scene/history update. A failure inserts no nodes, removes staged Preview files, and best-effort removes original resources when `AssetStore.remove()` exists.
 
 Atomicity applies to this single `customType` call. A host combining multiple Custom types must define its own cross-call transaction policy.
+
+## Clipboard file import
+
+The host can route normalized clipboard files through registered Custom Element file definitions before Excalidraw's native image importer:
+
+```tsx
+<Excalidraw
+  customElementFileImport={{
+    paste: true,
+  }}
+/>
+```
+
+Definitions participate when they provide `file.import` and their `file.accept` matches the pasted file. A unique match creates a Custom Element. No match falls back to the native paste behavior. If multiple definitions match, the host may resolve the conflict explicitly:
+
+```tsx
+<Excalidraw
+  customElementFileImport={{
+    paste: {
+      resolve: ({ file, candidates }) =>
+        candidates.find(({ customType }) => customType === preferredType(file))
+          ?.customType ?? null,
+    },
+  }}
+/>
+```
+
+Returning `null` keeps native paste behavior. Returning a type not present in `candidates` is rejected.

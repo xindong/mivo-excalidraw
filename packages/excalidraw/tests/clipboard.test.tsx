@@ -1,7 +1,7 @@
 import React from "react";
 import { vi } from "vitest";
 
-import { getLineHeightInPx } from "@excalidraw/element";
+import { getLineHeightInPx, registerCustomElement } from "@excalidraw/element";
 
 import { KEYS, arrayToMap, getLineHeight } from "@excalidraw/common";
 
@@ -94,6 +94,48 @@ beforeEach(async () => {
 });
 
 describe("general paste behavior", () => {
+  it("routes accepted clipboard files to a registered custom element", async () => {
+    unmountComponent();
+    const unregister = registerCustomElement({
+      type: "test.pasted-image",
+      schemaVersion: 1,
+      rendererId: "test.pasted-image",
+      file: {
+        accept: ["image/*"],
+        import: async ({ file }) => ({
+          width: 120,
+          height: 80,
+          data: { name: file.name },
+        }),
+      },
+    });
+    try {
+      await render(
+        <Excalidraw
+          autoFocus={true}
+          handleKeyboardGlobally={true}
+          customElementFileImport={{ paste: true }}
+        />,
+      );
+      document.dispatchEvent(
+        createPasteEvent({
+          files: [new File(["image"], "pasted.png", { type: "image/png" })],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(h.elements).toHaveLength(1);
+        expect(h.elements[0]).toMatchObject({
+          type: "custom",
+          customType: "test.pasted-image",
+          data: { name: "pasted.png" },
+        });
+      });
+    } finally {
+      unregister();
+    }
+  });
+
   it("should randomize seed on paste", async () => {
     const rectangle = API.createElement({ type: "rectangle" });
     const clipboardJSON = await serializeAsClipboardJSON({

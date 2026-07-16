@@ -562,6 +562,13 @@ const nonEmptySelectionColor = (value: string | undefined) =>
 export const getCustomElementDefinition = (customType: string) =>
   definitionRegistry.get(customType) ?? null;
 
+export const getCustomElementFileImportDefinitions = (file: File) =>
+  [...definitionRegistry.values()].filter(
+    (definition) =>
+      Boolean(definition.file?.import) &&
+      customElementDefinitionAcceptsFile(definition, file),
+  );
+
 export const unregisterCustomElement = (customType: string) => {
   const definition = definitionRegistry.get(customType);
   if (!definition) {

@@ -782,6 +782,33 @@ export type InsertCustomElementsFromFilesOptions = Readonly<{
   signal?: AbortSignal;
 }>;
 
+export type CustomElementFilePasteCandidate = Readonly<{
+  customType: string;
+}>;
+
+export type CustomElementFilePasteConfig =
+  | boolean
+  | Readonly<{
+      /**
+       * Resolves ambiguous matches. Returning null keeps the native paste
+       * behavior. A returned type must be one of the supplied candidates.
+       */
+      resolve?: (
+        context: Readonly<{
+          file: File;
+          candidates: readonly CustomElementFilePasteCandidate[];
+        }>,
+      ) => string | null;
+    }>;
+
+export type CustomElementFileImportConfig = Readonly<{
+  /**
+   * Routes normalized clipboard files through registered Custom Element file
+   * definitions before the native image importer. Disabled by default.
+   */
+  paste?: CustomElementFilePasteConfig;
+}>;
+
 export type CustomElementOperationOptions = Readonly<{
   signal?: AbortSignal;
 }>;
@@ -994,6 +1021,7 @@ export interface ExcalidrawProps {
    * Preview images remain managed by Excalidraw BinaryFiles.
    */
   customElementAssets?: CustomElementAssetStore;
+  customElementFileImport?: CustomElementFileImportConfig;
   generateLinkForSelection?: (id: string, type: "element" | "group") => string;
   onLinkOpen?: (
     element: NonDeletedExcalidrawElement,
