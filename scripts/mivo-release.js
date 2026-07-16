@@ -151,10 +151,15 @@ const validatePackageFiles = () => {
         throw new Error(`${manifest.name} export does not exist: ${target}`);
       }
     }
-    execFileSync("npm", ["pack", "--dry-run"], {
-      cwd: packageDir,
-      stdio: "inherit",
-    });
+    const packResult = JSON.parse(
+      execFileSync("npm", ["pack", "--dry-run", "--json"], {
+        cwd: packageDir,
+        encoding: "utf8",
+      }),
+    )[0];
+    console.info(
+      `Validated ${manifest.name}@${manifest.version}: ${packResult.files.length} files, ${packResult.size} bytes`,
+    );
   }
 };
 

@@ -1,17 +1,29 @@
 const path = require("path");
+const fs = require("fs");
 
 const { build } = require("esbuild");
 
 // contains all dependencies bundled inside
+const getEntryPoints = () => {
+  const entryPoints = ["src/index.ts"];
+  if (fs.existsSync(path.resolve(process.cwd(), "src/visualdebug.ts"))) {
+    entryPoints.push("src/visualdebug.ts");
+  }
+  return entryPoints;
+};
+
+const packageName = path.basename(process.cwd());
+
 const getConfig = (outdir) => ({
   outdir,
   bundle: true,
   format: "esm",
-  entryPoints: ["src/index.ts"],
+  entryPoints: getEntryPoints(),
   entryNames: "[name]",
   assetNames: "[dir]/[name]",
   alias: {
     "@excalidraw/utils": path.resolve(__dirname, "../packages/utils/src"),
+    [`@excalidraw/${packageName}`]: path.resolve(process.cwd(), "src"),
   },
   external: [
     "@excalidraw/common",
