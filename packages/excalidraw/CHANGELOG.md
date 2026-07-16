@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.3
+
+### Mivo fork features
+
+- Added Custom Element selection-border color, width, and corner-radius configuration.
+
 ## 0.18.1-mivo.2
 
 ### Mivo fork features

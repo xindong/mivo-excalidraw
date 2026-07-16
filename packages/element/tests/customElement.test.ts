@@ -86,6 +86,7 @@ describe("custom element renderer viewBox", () => {
         id: "test.selection",
         selection: {
           padding: 0,
+          border: { color: "#5e5ad8", width: 2, radius: 8 },
           transformHandles: { margin: 0, spacing: 0 },
         },
         render: () => undefined,
@@ -96,6 +97,7 @@ describe("custom element renderer viewBox", () => {
       getCustomElementSelectionStyle(customElement("test.selection", 200, 132)),
     ).toEqual({
       padding: 0,
+      border: { color: "#5e5ad8", width: 2, radius: 8 },
       transformHandles: { margin: 0, spacing: 0 },
     });
   });

@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.2`
+- Current prerelease: `0.18.1-mivo.3`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -120,7 +120,7 @@ The `/canvas` runtime is built as an independent entry point. Importing it does 
 
 ### Host capabilities and rendering controls
 
-The fork also exposes host-facing capability controls used by the isolated fixture, including rotation, per-element-type resize and double-click policy, UI suppression, viewport constraints, and Custom Element cache behavior. Custom renderers may independently configure selection-border padding and transform-handle geometry.
+The fork also exposes host-facing capability controls used by the isolated fixture, including rotation, per-element-type resize and double-click policy, UI suppression, viewport constraints, and Custom Element cache behavior. Custom renderers may independently configure selection-border padding, color, width, radius, and transform-handle geometry.
 
 ## Architecture boundaries
 

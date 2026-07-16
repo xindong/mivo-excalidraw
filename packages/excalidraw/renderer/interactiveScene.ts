@@ -953,6 +953,8 @@ type ElementSelectionBorder = {
   cy: number;
   activeEmbeddable: boolean;
   padding?: number;
+  width?: number;
+  radius?: number;
 };
 
 const renderSelectionBorder = (
@@ -979,12 +981,15 @@ const renderSelectionBorder = (
     elementProperties.padding ?? DEFAULT_TRANSFORM_HANDLE_SPACING * 2;
 
   const linePadding = padding / appState.zoom.value;
+  const borderRadius = (elementProperties.radius ?? 0) / appState.zoom.value;
   const lineWidth = 8 / appState.zoom.value;
   const spaceWidth = 4 / appState.zoom.value;
 
   context.save();
   context.translate(appState.scrollX, appState.scrollY);
-  context.lineWidth = (activeEmbeddable ? 4 : 1) / appState.zoom.value;
+  context.lineWidth =
+    (elementProperties.width ?? (activeEmbeddable ? 4 : 1)) /
+    appState.zoom.value;
 
   const count = selectionColors.length;
   for (let index = 0; index < count; ++index) {
@@ -1005,6 +1010,8 @@ const renderSelectionBorder = (
       cx,
       cy,
       angle,
+      false,
+      borderRadius,
     );
   }
   context.restore();
@@ -1845,6 +1852,10 @@ const _renderInteractiveScene = ({
         }
 
         if (selectionColors.length) {
+          const customSelection =
+            element.type === "custom"
+              ? getCustomElementSelectionStyle(element)
+              : null;
           const [x1, y1, x2, y2, cx, cy] = getElementAbsoluteCoords(
             element,
             elementsMap,
@@ -1856,7 +1867,13 @@ const _renderInteractiveScene = ({
             y1,
             x2,
             y2,
-            selectionColors: element.locked ? ["#ced4da"] : selectionColors,
+            selectionColors: element.locked
+              ? ["#ced4da"]
+              : selectionColors.map((color, index) =>
+                  index === 0 && locallySelectedIds.has(element.id)
+                    ? customSelection?.border?.color ?? color
+                    : color,
+                ),
             dashed: !!remoteClients || element.locked,
             cx,
             cy,
@@ -1868,8 +1885,10 @@ const _renderInteractiveScene = ({
               isImageElement(element)
                 ? 0
                 : element.type === "custom"
-                ? getCustomElementSelectionStyle(element)?.padding
+                ? customSelection?.padding
                 : undefined,
+            width: customSelection?.border?.width,
+            radius: customSelection?.border?.radius,
           });
         }
       }

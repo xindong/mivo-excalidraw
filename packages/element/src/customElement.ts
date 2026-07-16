@@ -32,6 +32,12 @@ export type CustomElementCacheStrategy =
 export type CustomElementSelectionStyle = Readonly<{
   /** Canvas selection-border padding in viewport pixels. */
   padding?: number;
+  /** Visual style of the selection border. Dimensions use viewport pixels. */
+  border?: Readonly<{
+    color?: string;
+    width?: number;
+    radius?: number;
+  }>;
   /** Optional geometry for resize handles rendered around this element. */
   transformHandles?: Readonly<{
     margin?: number;
@@ -527,6 +533,13 @@ export const getCustomElementSelectionStyle = (
   }
   return {
     padding: nonNegativeSelectionValue(selection.padding),
+    border: selection.border
+      ? {
+          color: nonEmptySelectionColor(selection.border.color),
+          width: nonNegativeSelectionValue(selection.border.width),
+          radius: nonNegativeSelectionValue(selection.border.radius),
+        }
+      : undefined,
     transformHandles: selection.transformHandles
       ? {
           margin: nonNegativeSelectionValue(selection.transformHandles.margin),
@@ -542,6 +555,9 @@ const nonNegativeSelectionValue = (value: number | undefined) =>
   value !== undefined && Number.isFinite(value) && value >= 0
     ? value
     : undefined;
+
+const nonEmptySelectionColor = (value: string | undefined) =>
+  value?.trim() || undefined;
 
 export const getCustomElementDefinition = (customType: string) =>
   definitionRegistry.get(customType) ?? null;

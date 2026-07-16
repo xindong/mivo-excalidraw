@@ -19,6 +19,7 @@ const definition = defineCustomElement({
     cache: { mode: "source", maxScale: 4 },
     selection: {
       padding: 0,
+      border: { color: "#5e5ad8", width: 1, radius: 8 },
       transformHandles: { margin: 0, spacing: 0 },
     },
     render: ({ element, painter, viewBox }) => {
@@ -50,11 +51,12 @@ React applications may call `useRegisterCustomElement(extension)` instead.
 
 ## Selection and resize policy
 
-Custom renderers may define the visual geometry of their selection affordances:
+Custom renderers may define the visual style and geometry of their selection affordances. Padding, border width/radius, and transform-handle dimensions use viewport pixels, so they remain visually stable across zoom levels:
 
 ```ts
 selection: {
   padding: 0,
+  border: { color: "#5e5ad8", width: 1, radius: 8 },
   transformHandles: { margin: 0, spacing: 0 },
 }
 ```
