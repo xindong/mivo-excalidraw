@@ -1,17 +1,12 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync, spawnSync } = require("child_process");
+const {
+  MIVO_PACKAGES: PACKAGES,
+  MIVO_PACKAGE_NAMES: PACKAGE_NAMES,
+  smokeInstallPackages,
+} = require("./mivo-release-smoke");
 
-const PACKAGES = [
-  "common",
-  "fractional-indexing",
-  "math",
-  "element",
-  "excalidraw",
-];
-const PACKAGE_NAMES = new Map(
-  PACKAGES.map((packageName) => [packageName, `@miragari/mivo-${packageName}`]),
-);
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
 const STAGING_DIR = path.join(ROOT, ".mivo-release");
@@ -205,6 +200,7 @@ assertCleanWorktree();
 buildPackages();
 stagePackages();
 validatePackageFiles();
+smokeInstallPackages(STAGING_DIR);
 
 if (shouldPublish) {
   publishPackages();

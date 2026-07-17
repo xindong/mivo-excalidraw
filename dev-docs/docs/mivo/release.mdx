@@ -24,18 +24,28 @@ import { useCustomElementResource } from "@miragari/mivo-excalidraw/custom-eleme
 import "@miragari/mivo-excalidraw/index.css";
 ```
 
+The release command performs this smoke install automatically before publishing. It creates an isolated temporary host and maps every `@excalidraw/*` npm alias to its staged local tarball. Do not replace it with `npm install *.tgz`: package names such as `@miragari/mivo-common` do not satisfy the `@excalidraw/common` alias, so npm will query the registry before the new dependency version has been published.
+
+To repeat only the install smoke against an existing staging directory, without rebuilding or publishing:
+
+```bash
+node scripts/mivo-release-smoke.js .mivo-release
+```
+
 ## Commands
 
 Stage without publishing:
 
 ```bash
-npm run release:mivo -- --version=0.18.1-mivo.4
+MIVO_VERSION=0.18.1-mivo.5
+npm run release:mivo -- --version="$MIVO_VERSION"
 ```
 
 Publish after inspecting `.mivo-release/`:
 
 ```bash
-npm run release:mivo -- --version=0.18.1-mivo.4 --publish
+MIVO_VERSION=0.18.1-mivo.5
+npm run release:mivo -- --version="$MIVO_VERSION" --publish
 ```
 
 The script publishes the workspace dependency packages first and `@miragari/mivo-excalidraw` last, all with `--tag mivo`.
@@ -43,8 +53,8 @@ The script publishes the workspace dependency packages first and `@miragari/mivo
 After publication, tag the exact release commit:
 
 ```bash
-git tag v0.18.1-mivo.4
-git push origin v0.18.1-mivo.4
+git tag "v$MIVO_VERSION"
+git push origin "v$MIVO_VERSION"
 ```
 
 Do not publish from a dirty worktree or reuse an npm version.
