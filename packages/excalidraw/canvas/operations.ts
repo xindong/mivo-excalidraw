@@ -79,6 +79,15 @@ const applyCanvasSceneOperationsUnsafe = (
     if (operation.type === "viewport") {
       const select = operation.select ?? [];
       const focus = operation.focus ?? [];
+      if (operation.center && focus.length) {
+        throw invalidCanvasOperation(
+          "Canvas viewport cannot use center and focus together",
+        );
+      }
+      if (operation.center) {
+        finiteRequired(operation.center.x, "Canvas viewport center.x");
+        finiteRequired(operation.center.y, "Canvas viewport center.y");
+      }
       if (select.length || focus.length) {
         ensureElements(elements, [...select, ...focus]);
       }
@@ -440,6 +449,7 @@ const patchElement = (
     }
   }
   for (const [key, value] of [
+    ["name", patch.name],
     ["customType", patch.customType],
     ["rendererId", patch.rendererId],
   ] as const) {
@@ -459,13 +469,14 @@ const patchElement = (
     }
     if (
       element.type !== "custom" &&
-      (patch.customType !== undefined ||
+      (patch.name !== undefined ||
+        patch.customType !== undefined ||
         patch.rendererId !== undefined ||
         patch.schemaVersion !== undefined ||
         patch.rendererVersion !== undefined)
     ) {
       throw invalidCanvasOperation(
-        "Canvas custom identity fields can only patch custom elements",
+        "Canvas custom fields can only patch custom elements",
       );
     }
     const updates: Record<string, unknown> = {};
@@ -504,6 +515,12 @@ const patchElement = (
         if (patch[key] !== undefined) {
           updates[key] = patch[key];
         }
+      }
+      if (patch.name !== undefined) {
+        updates.data = {
+          ...(patch.data ?? element.data),
+          name: patch.name,
+        };
       }
     }
     if (preserveCenter) {

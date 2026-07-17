@@ -26,7 +26,7 @@ await controller.apply({
 ```
 
 `patch` can retype an existing Custom Element in place by updating
-`customType`, renderer/version fields, resource, preview, and data. Set
+`customType`, renderer/version fields, name, resource, preview, and data. Set
 `preserveCenter` when a new width or height should keep the element centered.
 The element id, ordering, grouping, frame, and bindings are preserved.
 
@@ -45,6 +45,7 @@ The built-in operations cover:
 - align/distribute/stack/grid
 - arrange
 - viewport selection/focus
+- viewport centering on a scene point
 - namespaced extension commands
 
 Inspect supports ids, types, keyword search, selection, lock state, groups, frames, bounds, pagination, and field projection.

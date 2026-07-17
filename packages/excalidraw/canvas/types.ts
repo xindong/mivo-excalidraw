@@ -142,6 +142,8 @@ export type CanvasElementPatch = Readonly<{
   text?: string;
   fontSize?: number;
   customData?: Record<string, unknown>;
+  /** Updates `data.name` on a Custom Element. */
+  name?: string;
   customType?: string;
   rendererId?: string;
   schemaVersion?: number;
@@ -223,6 +225,8 @@ export type CanvasOperation =
       type: "viewport";
       select?: readonly string[];
       focus?: readonly string[];
+      /** Center the viewport on a scene point without changing zoom. */
+      center?: CanvasPoint;
       fit?: "scale-down" | "contain" | "none";
       animate?: boolean;
     }>

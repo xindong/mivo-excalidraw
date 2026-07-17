@@ -159,6 +159,7 @@ class LiveCanvasController implements CanvasController {
       operationResult,
       selectedElementIds,
       focusElementIds,
+      viewportCenter,
       sceneChanged,
       result,
     } = prepared;
@@ -174,11 +175,11 @@ class LiveCanvasController implements CanvasController {
       this.invalidateIndex();
     }
 
-    if (focusElementIds?.length) {
+    if (focusElementIds?.length || viewportCenter) {
       const nextMap = new Map(
         operationResult.elements.map((element) => [element.id, element]),
       );
-      const focusElements = focusElementIds
+      const focusElements = (focusElementIds ?? [])
         .map((id) => nextMap.get(id))
         .filter(
           (element): element is OrderedExcalidrawElement =>
@@ -188,9 +189,13 @@ class LiveCanvasController implements CanvasController {
         .reverse()
         .find((operation) => operation.type === "viewport");
       this.api.setViewport({
-        target: focusElements,
+        target: viewportCenter
+          ? { ...viewportCenter, width: 0, height: 0 }
+          : focusElements,
         fit:
-          viewportOperation?.type === "viewport"
+          viewportCenter
+            ? "none"
+            : viewportOperation?.type === "viewport"
             ? viewportOperation.fit ?? "scale-down"
             : "scale-down",
         animation:
@@ -220,12 +225,21 @@ class LiveCanvasController implements CanvasController {
     const focusElementIds = request.focusCreated
       ? createdElementIds
       : operationResult.focusElementIds;
+    const viewportOperation = [...request.operations]
+      .reverse()
+      .find((operation) => operation.type === "viewport" && operation.center);
+    const viewportCenter =
+      viewportOperation?.type === "viewport"
+        ? viewportOperation.center
+        : undefined;
     const changes = summarizeChanges(beforeElements, operationResult.elements);
     const sceneChanged =
       changes.length > 0 ||
       hasOrderChanged(beforeElements, operationResult.elements);
     const viewportChanged =
-      selectedElementIds !== undefined || focusElementIds !== undefined;
+      selectedElementIds !== undefined ||
+      focusElementIds !== undefined ||
+      viewportCenter !== undefined;
     const result: CanvasApplyResult = {
       ok: true,
       noOp: !sceneChanged && !viewportChanged,
@@ -243,6 +257,7 @@ class LiveCanvasController implements CanvasController {
       operationResult,
       selectedElementIds,
       focusElementIds,
+      viewportCenter,
       sceneChanged,
       viewportChanged,
       previousRevision,

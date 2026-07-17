@@ -1,6 +1,7 @@
 import {
   applyCanvasSceneOperations,
   CANVAS_CORE_PROTOCOL_VERSION,
+  createCanvasController,
   defineCanvasControllerExtension,
   getCanvasCapabilities,
 } from "../canvas";
@@ -71,6 +72,7 @@ describe("Canvas Core public contracts", () => {
           elementId: "generate-1",
           preserveCenter: true,
           patch: {
+            name: "finished",
             width: 100,
             height: 50,
             customType: "mivo.image",
@@ -78,7 +80,7 @@ describe("Canvas Core public contracts", () => {
             schemaVersion: 2,
             rendererVersion: 3,
             status: "ready",
-            data: { name: "done" },
+            data: { mimeType: "image/png" },
           },
         },
       ],
@@ -97,10 +99,36 @@ describe("Canvas Core public contracts", () => {
       schemaVersion: 2,
       rendererVersion: 3,
       status: "ready",
-      data: { name: "done" },
+      data: { name: "finished", mimeType: "image/png" },
     });
     expect(element.version).toBeGreaterThan(previous.version);
     expect(patched.createdElementIds).toEqual([]);
     expect(patched.touchedElementIds).toEqual(["generate-1"]);
+  });
+
+  it("centers the viewport on a scene point through the controller", async () => {
+    const setViewport = jest.fn();
+    const controller = createCanvasController({
+      isDestroyed: false,
+      getSceneElementsIncludingDeleted: () => [],
+      getAppState: () => ({
+        editingGroupId: null,
+        selectedElementIds: {},
+        selectedGroupIds: {},
+      }),
+      setViewport,
+    } as never);
+
+    const result = await controller.apply({
+      operations: [{ type: "viewport", center: { x: 120, y: 80 } }],
+    });
+
+    expect(result).toMatchObject({ sceneChanged: false, viewportChanged: true });
+    expect(setViewport).toHaveBeenCalledWith({
+      target: { x: 120, y: 80, width: 0, height: 0 },
+      fit: "none",
+      animation: true,
+      offsets: { ui: true },
+    });
   });
 });
