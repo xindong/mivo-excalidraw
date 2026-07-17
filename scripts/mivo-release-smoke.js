@@ -17,7 +17,29 @@ const MIVO_PACKAGE_NAMES = new Map(
   ]),
 );
 
+const validateBrowserAssets = (stagingDir) => {
+  const packageDir = path.join(stagingDir, "excalidraw");
+  for (const mode of ["dev", "prod"]) {
+    const distDir = path.join(packageDir, "dist", mode);
+    const fontsDir = path.join(distDir, "fonts");
+    if (!fs.existsSync(fontsDir)) {
+      throw new Error(`Missing canonical browser font directory: ${fontsDir}`);
+    }
+
+    for (const fileName of fs.readdirSync(distDir)) {
+      if (!fileName.endsWith(".js")) {
+        continue;
+      }
+      const source = fs.readFileSync(path.join(distDir, fileName), "utf8");
+      if (source.includes("_.._/fonts")) {
+        throw new Error(`Invalid browser font path in dist/${mode}/${fileName}`);
+      }
+    }
+  }
+};
+
 const smokeInstallPackages = (stagingDir) => {
+  validateBrowserAssets(stagingDir);
   const hostDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "mivo-release-smoke-"),
   );
@@ -103,4 +125,5 @@ module.exports = {
   MIVO_PACKAGES,
   MIVO_PACKAGE_NAMES,
   smokeInstallPackages,
+  validateBrowserAssets,
 };

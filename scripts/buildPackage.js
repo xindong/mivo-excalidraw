@@ -59,6 +59,10 @@ const precompile = (source, sourcePath) => {
 // excludes all external dependencies and bundles only the source code
 const getConfig = (outdir) => ({
   outdir,
+  // Keep imported assets relative to the package root even when entry points
+  // use explicit output paths. Without an outbase, esbuild derives one from
+  // the mixed entry-point forms and emits fonts under `_.._/fonts`.
+  outbase: ".",
   bundle: true,
   splitting: true,
   format: "esm",
