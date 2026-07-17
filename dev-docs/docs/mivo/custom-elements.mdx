@@ -33,6 +33,11 @@ const definition = defineCustomElement({
 
 const extension = defineCustomElementExtension({
   definition,
+  lifecycle: {
+    onElementsChange({ elements, added, updated, removed, signal }) {
+      // Synchronize host-owned background work for this custom type.
+    },
+  },
   overlays: [
     {
       id: "controls",
@@ -46,6 +51,13 @@ const extension = defineCustomElementExtension({
 
 const unregister = registerCustomElementExtension(extension);
 ```
+
+`onElementsChange` runs per editor instance and per `customType`. Initial
+elements are reported as `added`; extension replacement or unregistration
+reports the previous set as `removed`. Use the provided `signal` to cancel
+host-owned asynchronous work when the editor unmounts. Long-lived work belongs
+here rather than in Canvas renderers or overlay mount callbacks. Geometry-only
+edits do not produce `updated` entries.
 
 React applications may call `useRegisterCustomElement(extension)` instead.
 

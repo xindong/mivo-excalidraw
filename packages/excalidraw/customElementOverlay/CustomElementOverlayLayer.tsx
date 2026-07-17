@@ -23,7 +23,6 @@ import {
   getScreenSpaceOverlayStyle,
 } from "./geometry";
 import {
-  getCustomElementLifecycle,
   getCustomElementOverlayRevision,
   getCustomElementOverlays,
   subscribeCustomElementOverlays,
@@ -431,9 +430,6 @@ export const CustomElementOverlayLayer = ({
   );
   const { sizes, registerNode } = useOverlaySizes();
   const initializedOverlays = useRef(new Set<string>());
-  const lifecycleStates = useRef(
-    new Map<string, Readonly<{ selected: boolean; inViewport: boolean }>>(),
-  );
   const [presentItems, setPresentItems] = useState<
     ReadonlyMap<string, PresentOverlayItem>
   >(() => new Map());
@@ -528,66 +524,6 @@ export const CustomElementOverlayLayer = ({
       }
     }
   }, [elements, registryRevision, runtime]);
-
-  useEffect(() => {
-    const nextStates = new Map<
-      string,
-      Readonly<{ selected: boolean; inViewport: boolean }>
-    >();
-    for (const element of elements) {
-      if (!isCustomElement(element)) {
-        continue;
-      }
-      const lifecycle = getCustomElementLifecycle(element.customType);
-      const selected = !!appState.selectedElementIds[element.id];
-      const inViewport = visibleElementIds.has(element.id);
-      const previous = lifecycleStates.current.get(element.id);
-      if (!lifecycle) {
-        continue;
-      }
-      nextStates.set(element.id, { selected, inViewport });
-      const baseContext = {
-        element: element as TypedExcalidrawCustomElement<any>,
-        appState,
-        api,
-        assets,
-        runtime,
-      };
-      const previousSelected = previous?.selected ?? false;
-      if (lifecycle.onSelectionChange && selected !== previousSelected) {
-        try {
-          lifecycle.onSelectionChange({
-            ...baseContext,
-            isSelected: selected,
-            previousIsSelected: previousSelected,
-          });
-        } catch (error) {
-          console.error("Custom element selection lifecycle failed", error);
-        }
-      }
-      const previousInViewport = previous?.inViewport ?? false;
-      if (lifecycle.onViewportChange && inViewport !== previousInViewport) {
-        try {
-          lifecycle.onViewportChange({
-            ...baseContext,
-            isInViewport: inViewport,
-            previousIsInViewport: previousInViewport,
-          });
-        } catch (error) {
-          console.error("Custom element viewport lifecycle failed", error);
-        }
-      }
-    }
-    lifecycleStates.current = nextStates;
-  }, [
-    api,
-    appState,
-    assets,
-    elements,
-    registryRevision,
-    runtime,
-    visibleElementIds,
-  ]);
 
   const desiredItems = useMemo(() => {
     const next: DesiredOverlayItem[] = [];

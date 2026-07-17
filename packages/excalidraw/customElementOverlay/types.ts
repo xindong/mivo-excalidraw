@@ -60,6 +60,7 @@ export type CustomElementOverlayVisibilityContext<
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
   runtime: CustomElementOverlayController;
+  runtime: CustomElementOverlayController;
   state: TState | undefined;
   isSelected: boolean;
   isHovered: boolean;
@@ -165,7 +166,32 @@ export type CustomElementLifecycleContext<
   appState: AppState;
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
-  runtime: CustomElementOverlayController;
+  /** Aborted when this editor instance unmounts. */
+  signal: AbortSignal;
+}>;
+
+export type CustomElementLifecycleUpdate<
+  TData extends CustomElementData = CustomElementData,
+> = Readonly<{
+  /** Geometry-only mutations do not produce collection lifecycle updates. */
+  previous: TypedExcalidrawCustomElement<TData>;
+  current: TypedExcalidrawCustomElement<TData>;
+}>;
+
+export type CustomElementCollectionLifecycleContext<
+  TData extends CustomElementData = CustomElementData,
+> = Readonly<{
+  customType: string;
+  /** Current non-deleted elements registered under this custom type. */
+  elements: readonly TypedExcalidrawCustomElement<TData>[];
+  added: readonly TypedExcalidrawCustomElement<TData>[];
+  updated: readonly CustomElementLifecycleUpdate<TData>[];
+  removed: readonly TypedExcalidrawCustomElement<TData>[];
+  appState: AppState;
+  api: ExcalidrawImperativeAPI;
+  assets: CustomElementAssetStore | null;
+  /** Aborted when this editor instance unmounts. */
+  signal: AbortSignal;
 }>;
 
 export type CustomElementExtension<
@@ -175,6 +201,14 @@ export type CustomElementExtension<
   definition: CustomElementDefinition<TData, TPreviewRequest>;
   overlays?: readonly CustomElementOverlayDefinition<TData, any>[];
   lifecycle?: Readonly<{
+    /**
+     * Receives an editor-instance-scoped, batched semantic view of this
+     * custom type. Initial elements are reported as added. Replacing or
+     * unregistering the extension reports the previous set as removed.
+     */
+    onElementsChange?: (
+      context: CustomElementCollectionLifecycleContext<TData>,
+    ) => void | Promise<void>;
     onSelectionChange?: (
       context: CustomElementLifecycleContext<TData> &
         Readonly<{ isSelected: boolean; previousIsSelected: boolean }>,

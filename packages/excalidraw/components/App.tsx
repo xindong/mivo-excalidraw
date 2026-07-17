@@ -455,6 +455,7 @@ import {
   CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS,
   CustomElementOverlayLayer,
 } from "../customElementOverlay/CustomElementOverlayLayer";
+import { CustomElementLifecycleLayer } from "../customElementOverlay/CustomElementLifecycleLayer";
 import { CustomElementOverlayRuntime } from "../customElementOverlay/runtime";
 
 import ConvertElementTypePopup, {
@@ -2640,6 +2641,14 @@ class App extends React.Component<AppProps, AppState> {
                           <CustomElementOverlayLayer
                             elements={this.scene.getNonDeletedElements()}
                             elementsMap={allElementsMap}
+                            visibleElements={visibleElements}
+                            appState={this.state}
+                            api={this.api}
+                            assets={this.props.customElementAssets ?? null}
+                            runtime={this.customElementOverlayRuntime}
+                          />
+                          <CustomElementLifecycleLayer
+                            elements={this.scene.getNonDeletedElements()}
                             visibleElements={visibleElements}
                             appState={this.state}
                             api={this.api}

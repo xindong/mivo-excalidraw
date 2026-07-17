@@ -476,7 +476,9 @@ export {
 } from "./customElementOverlay/registry";
 export type {
   CustomElementExtension,
+  CustomElementCollectionLifecycleContext,
   CustomElementLifecycleContext,
+  CustomElementLifecycleUpdate,
   CustomElementOverlayDefinition,
   CustomElementOverlayRenderContext,
   CustomElementOverlayVisibility,

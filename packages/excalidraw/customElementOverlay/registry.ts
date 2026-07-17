@@ -29,12 +29,16 @@ const emit = () => {
   listeners.forEach((listener) => listener());
 };
 
-export const subscribeCustomElementOverlays = (listener: () => void) => {
+export const subscribeCustomElementExtensions = (listener: () => void) => {
   listeners.add(listener);
   return () => listeners.delete(listener);
 };
 
-export const getCustomElementOverlayRevision = () => revision;
+export const getCustomElementExtensionRevision = () => revision;
+
+// Backwards-compatible names for lower-level Overlay consumers.
+export const subscribeCustomElementOverlays = subscribeCustomElementExtensions;
+export const getCustomElementOverlayRevision = getCustomElementExtensionRevision;
 
 export const getCustomElementOverlays = (customType: string) =>
   Array.from(
@@ -42,8 +46,8 @@ export const getCustomElementOverlays = (customType: string) =>
     (entry) => entry.definition,
   );
 
-export const getCustomElementLifecycle = (customType: string) =>
-  lifecycleRegistry.get(customType)?.lifecycle ?? null;
+export const getCustomElementLifecycleRegistration = (customType: string) =>
+  lifecycleRegistry.get(customType) ?? null;
 
 export const defineCustomElementOverlay = <
   TData extends CustomElementData,

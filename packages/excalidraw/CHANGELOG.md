@@ -13,6 +13,13 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.5
+
+### Mivo fork features
+
+- Added editor-instance-scoped Custom Element collection lifecycle callbacks
+  with semantic added, updated, and removed batches plus unmount cancellation.
+
 ## 0.18.1-mivo.4
 
 ### Mivo fork features

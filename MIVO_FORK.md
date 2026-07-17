@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.4`
+- Current prerelease: `0.18.1-mivo.5`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -37,6 +37,7 @@ const extension = defineCustomElementExtension({
   definition,
   overlays,
   lifecycle: {
+    onElementsChange,
     onSelectionChange,
     onViewportChange,
   },
@@ -45,6 +46,12 @@ const extension = defineCustomElementExtension({
 registerCustomElementExtension(extension);
 // React hosts may use useRegisterCustomElement(extension).
 ```
+
+`onElementsChange` is editor-instance-scoped and reports the current non-deleted
+set for one `customType` together with batched added, updated, and removed
+elements. Its `AbortSignal` is cancelled when the editor unmounts, allowing host
+extensions to coordinate background work without coupling it to renderer or
+overlay mount state.
 
 The lower-level `registerCustomElement()` and `registerCustomElementOverlays()` remain available for advanced dynamic registration.
 
