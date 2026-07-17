@@ -142,6 +142,10 @@ export type CanvasElementPatch = Readonly<{
   text?: string;
   fontSize?: number;
   customData?: Record<string, unknown>;
+  customType?: string;
+  rendererId?: string;
+  schemaVersion?: number;
+  rendererVersion?: number;
   data?: CustomElementData;
   resource?: CustomElementResource | null;
   previewFileId?: FileId | null;
@@ -169,6 +173,8 @@ export type CanvasOperation =
       type: "patch";
       elementId: string;
       patch: CanvasElementPatch;
+      /** Keep the element center fixed when patching width and/or height. */
+      preserveCenter?: boolean;
     }>
   | Readonly<{
       type: "transform";

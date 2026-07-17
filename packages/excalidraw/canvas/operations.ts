@@ -137,7 +137,12 @@ const applySceneOperation = (
   if (operation.type === "patch") {
     ensureElements(elements, [operation.elementId]);
     return {
-      elements: patchElement(elements, operation.elementId, operation.patch),
+      elements: patchElement(
+        elements,
+        operation.elementId,
+        operation.patch,
+        operation.preserveCenter,
+      ),
       created: [],
       touched: [operation.elementId],
     };
@@ -403,6 +408,7 @@ const patchElement = (
   elements: readonly OrderedExcalidrawElement[],
   id: string,
   patch: CanvasElementPatch,
+  preserveCenter = false,
 ) => {
   if (patch.width !== undefined && patch.width <= 0) {
     throw invalidCanvasOperation("Canvas patch width must be greater than 0");
@@ -423,6 +429,24 @@ const patchElement = (
       "Canvas patch opacity must be between 0 and 100",
     );
   }
+  for (const [key, value] of [
+    ["schemaVersion", patch.schemaVersion],
+    ["rendererVersion", patch.rendererVersion],
+  ] as const) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+      throw invalidCanvasOperation(
+        `Canvas patch ${key} must be a non-negative integer`,
+      );
+    }
+  }
+  for (const [key, value] of [
+    ["customType", patch.customType],
+    ["rendererId", patch.rendererId],
+  ] as const) {
+    if (value !== undefined && !value.trim()) {
+      throw invalidCanvasOperation(`Canvas patch ${key} cannot be empty`);
+    }
+  }
   const relatedIds = collectRelatedElementIds(elements, new Set([id]));
   const workingElements = elements.map((element) =>
     relatedIds.has(element.id)
@@ -432,6 +456,17 @@ const patchElement = (
   const nextElements = workingElements.map((element) => {
     if (element.id !== id) {
       return element;
+    }
+    if (
+      element.type !== "custom" &&
+      (patch.customType !== undefined ||
+        patch.rendererId !== undefined ||
+        patch.schemaVersion !== undefined ||
+        patch.rendererVersion !== undefined)
+    ) {
+      throw invalidCanvasOperation(
+        "Canvas custom identity fields can only patch custom elements",
+      );
     }
     const updates: Record<string, unknown> = {};
     for (const key of [
@@ -457,6 +492,10 @@ const patchElement = (
     }
     if (element.type === "custom") {
       for (const key of [
+        "customType",
+        "rendererId",
+        "schemaVersion",
+        "rendererVersion",
         "data",
         "resource",
         "previewFileId",
@@ -465,6 +504,14 @@ const patchElement = (
         if (patch[key] !== undefined) {
           updates[key] = patch[key];
         }
+      }
+    }
+    if (preserveCenter) {
+      if (patch.width !== undefined && patch.x === undefined) {
+        updates.x = element.x + (element.width - patch.width) / 2;
+      }
+      if (patch.height !== undefined && patch.y === undefined) {
+        updates.y = element.y + (element.height - patch.height) / 2;
       }
     }
     if (element.type === "text" && patch.text !== undefined) {
