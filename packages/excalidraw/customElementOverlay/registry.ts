@@ -31,7 +31,9 @@ const emit = () => {
 
 export const subscribeCustomElementExtensions = (listener: () => void) => {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 };
 
 export const getCustomElementExtensionRevision = () => revision;

@@ -125,8 +125,7 @@ export const CustomElementLifecycleLayer = ({
       const registration = getCustomElementLifecycleRegistration(
         element.customType,
       );
-      const lifecycle = registration?.lifecycle;
-      if (!lifecycle?.onElementsChange) {
+      if (!registration?.lifecycle.onElementsChange) {
         continue;
       }
       let entry = nextSets.get(element.customType);

@@ -60,7 +60,6 @@ export type CustomElementOverlayVisibilityContext<
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
   runtime: CustomElementOverlayController;
-  runtime: CustomElementOverlayController;
   state: TState | undefined;
   isSelected: boolean;
   isHovered: boolean;
@@ -166,6 +165,7 @@ export type CustomElementLifecycleContext<
   appState: AppState;
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
+  runtime: CustomElementOverlayController;
   /** Aborted when this editor instance unmounts. */
   signal: AbortSignal;
 }>;
