@@ -73,6 +73,7 @@ import {
   getCustomElementRenderer,
   getCustomElementRendererRevision,
   getImageDrawRect,
+  shouldRegenerateCustomElementCanvasForScale,
 } from "./customElement";
 
 import type {
@@ -672,7 +673,12 @@ const generateElementWithCanvas = (
     (!customCacheStrategy || customCacheStrategy.mode === "zoom");
   const shouldRegenerateBecauseCustomScale =
     element.type === "custom" &&
-    prevElementWithCanvas?.requestedScale !== requestedScale;
+    shouldRegenerateCustomElementCanvasForScale(
+      customCacheStrategy,
+      prevElementWithCanvas?.requestedScale,
+      requestedScale,
+      appState?.shouldCacheIgnoreZoom ?? false,
+    );
   const imageCrop = isImageElement(element) ? element.crop : null;
 
   const containingFrameOpacity =

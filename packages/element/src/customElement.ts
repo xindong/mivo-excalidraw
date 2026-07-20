@@ -29,6 +29,20 @@ export type CustomElementCacheStrategy =
   | Readonly<{ mode: "fixed"; scale: number }>
   | Readonly<{ mode: "source"; maxScale?: number }>;
 
+export const shouldRegenerateCustomElementCanvasForScale = (
+  strategy: CustomElementCacheStrategy | null | undefined,
+  previousScale: number | undefined,
+  requestedScale: number,
+  shouldCacheIgnoreZoom: boolean,
+) => {
+  if (previousScale === requestedScale) {
+    return false;
+  }
+
+  const followsZoom = !strategy || strategy.mode === "zoom";
+  return !followsZoom || !shouldCacheIgnoreZoom;
+};
+
 export type CustomElementSelectionStyle = Readonly<{
   /** Canvas selection-border padding in viewport pixels. */
   padding?: number;

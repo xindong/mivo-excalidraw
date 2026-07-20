@@ -8,6 +8,7 @@ import {
   getCustomElementSelectionStyle,
   registerCustomElement,
   registerCustomElementRenderer,
+  shouldRegenerateCustomElementCanvasForScale,
 } from "../src/customElement";
 
 import type { CustomElementDrawCommand } from "../src/customElement";
@@ -165,6 +166,47 @@ describe("custom element file import matching", () => {
         new File(["image"], "sample.png", { type: "image/png" }),
       ).map(({ type }) => type),
     ).toEqual(["test.image-card"]);
+  });
+});
+
+describe("custom element canvas cache", () => {
+  it("reuses zoom-dependent caches while zoom cache updates are disabled", () => {
+    expect(
+      shouldRegenerateCustomElementCanvasForScale({ mode: "zoom" }, 1, 2, true),
+    ).toBe(false);
+    expect(
+      shouldRegenerateCustomElementCanvasForScale(undefined, 1, 2, true),
+    ).toBe(false);
+  });
+
+  it("refreshes zoom-dependent caches after zooming settles", () => {
+    expect(
+      shouldRegenerateCustomElementCanvasForScale(
+        { mode: "zoom" },
+        1,
+        2,
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps non-zoom scale changes independent from zoom throttling", () => {
+    expect(
+      shouldRegenerateCustomElementCanvasForScale(
+        { mode: "source", maxScale: 4 },
+        1,
+        2,
+        true,
+      ),
+    ).toBe(true);
+    expect(
+      shouldRegenerateCustomElementCanvasForScale(
+        { mode: "fixed", scale: 2 },
+        2,
+        2,
+        true,
+      ),
+    ).toBe(false);
   });
 });
 
