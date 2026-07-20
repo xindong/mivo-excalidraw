@@ -1,124 +1,121 @@
-<a href="https://excalidraw.com/" target="_blank" rel="noopener">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" alt="Excalidraw" srcset="https://excalidraw.nyc3.cdn.digitaloceanspaces.com/github/excalidraw_github_cover_2_dark.png" />
-    <img alt="Excalidraw" src="https://excalidraw.nyc3.cdn.digitaloceanspaces.com/github/excalidraw_github_cover_2.png" />
-  </picture>
-</a>
+# Mivo Excalidraw
 
-<h4 align="center">
-  <a href="https://excalidraw.com">Excalidraw Editor</a> |
-  <a href="https://plus.excalidraw.com/blog">Blog</a> |
-  <a href="https://docs.excalidraw.com">Documentation</a> |
-  <a href="https://plus.excalidraw.com">Excalidraw+</a>
-</h4>
+[![npm mivo version](https://img.shields.io/npm/v/%40miragari%2Fmivo-excalidraw/mivo?label=npm%20mivo)](https://www.npmjs.com/package/@miragari/mivo-excalidraw)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-<div align="center">
-  <h2>
-    An open source virtual hand-drawn style whiteboard. </br>
-    Collaborative and end-to-end encrypted. </br>
-  <br />
-  </h2>
-</div>
+Mivo Excalidraw is a maintained fork of [Excalidraw](https://github.com/excalidraw/excalidraw) for applications that need native business elements, interactive DOM overlays, host-owned assets, and a stable canvas automation API.
 
-<br />
-<p align="center">
-  <a href="https://github.com/excalidraw/excalidraw/blob/master/LICENSE">
-    <img alt="Excalidraw is released under the MIT license." src="https://img.shields.io/badge/license-MIT-blue.svg"  /></a>
-  <a href="https://www.npmjs.com/package/@excalidraw/excalidraw">
-    <img alt="npm downloads/month" src="https://img.shields.io/npm/dm/@excalidraw/excalidraw"  /></a>
-  <a href="https://docs.excalidraw.com/docs/introduction/contributing">
-    <img alt="PRs welcome!" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat"  /></a>
-  <a href="https://discord.gg/UexuTaE">
-    <img alt="Chat on Discord" src="https://img.shields.io/discord/723672430744174682?color=738ad6&label=Chat%20on%20Discord&logo=discord&logoColor=ffffff&widget=false"/></a>
-  <a href="https://deepwiki.com/excalidraw/excalidraw">
-    <img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg" /></a>
-  <a href="https://twitter.com/excalidraw">
-    <img alt="Follow Excalidraw on Twitter" src="https://img.shields.io/twitter/follow/excalidraw.svg?label=follow+@excalidraw&style=social&logo=twitter"/></a>
-</p>
+The fork stays compatible with the upstream React editor while publishing the Mivo-specific SDK as [`@miragari/mivo-excalidraw`](https://www.npmjs.com/package/@miragari/mivo-excalidraw). The current prerelease line is `0.18.1-mivo.x` and is published under the npm `mivo` dist-tag.
 
-<div align="center">
-  <figure>
-    <a href="https://excalidraw.com" target="_blank" rel="noopener">
-      <img src="https://excalidraw.nyc3.cdn.digitaloceanspaces.com/github%2Fproduct_showcase.png" alt="Product showcase" />
-    </a>
-    <figcaption>
-      <p align="center">
-        Create beautiful hand-drawn like diagrams, wireframes, or whatever you like.
-      </p>
-    </figcaption>
-  </figure>
-</div>
+## Why this fork exists
 
-## Features
+Application-specific media cards and agent-driven canvas operations should not depend on private editor internals. Mivo Excalidraw adds public, reusable primitives for those integrations while keeping media decoding, storage, playback, and business workflows in the host application.
 
-The Excalidraw editor (npm package) supports:
+| Capability | What it provides |
+| --- | --- |
+| Native Custom Elements | Serializable host-defined elements with deterministic Canvas/SVG rendering, selection, resize, clipboard, restore, and export support. |
+| Custom Element extensions | One registration unit for definitions, overlays, collection lifecycle, selection changes, and viewport changes. |
+| Overlay Layer | Editor-owned `surface`, `panel`, and `popover` DOM overlays with coordinate, pointer, wheel, presence, transition, and shared-state handling. |
+| Asset and Preview lifecycle | Host-owned original resources through `CustomElementAssetStore`, plus Excalidraw-owned static previews through `previewFileId`. |
+| Canvas Core SDK | Typed inspect/apply operations, pagination, revisions, structured errors, extensions, and capability discovery for apps, agents, and MCP tools. |
+| Host capabilities | Explicit control over editor UI, viewport behavior, Custom Element selection, resize, rotation, double-click, and renderer caching. |
 
-- 💯&nbsp;Free & open-source.
-- 🎨&nbsp;Infinite, canvas-based whiteboard.
-- ✍️&nbsp;Hand-drawn like style.
-- 🌓&nbsp;Dark mode.
-- 🏗️&nbsp;Customizable.
-- 📷&nbsp;Image support.
-- 😀&nbsp;Shape libraries support.
-- 🌐&nbsp;Localization (i18n) support.
-- 🖼️&nbsp;Export to PNG, SVG & clipboard.
-- 💾&nbsp;Open format - export drawings as an `.excalidraw` json file.
-- ⚒️&nbsp;Wide range of tools - rectangle, circle, diamond, arrow, line, free-draw, eraser...
-- ➡️&nbsp;Arrow-binding & labeled arrows.
-- 🔙&nbsp;Undo / Redo.
-- 🔍&nbsp;Zoom and panning support.
+## Install
 
-## Excalidraw.com
-
-The app hosted at [excalidraw.com](https://excalidraw.com) is a minimal showcase of what you can build with Excalidraw. Its [source code](https://github.com/excalidraw/excalidraw/tree/master/excalidraw-app) is part of this repository as well, and the app features:
-
-- 📡&nbsp;PWA support (works offline).
-- 🤼&nbsp;Real-time collaboration.
-- 🔒&nbsp;End-to-end encryption.
-- 💾&nbsp;Local-first support (autosaves to the browser).
-- 🔗&nbsp;Shareable links (export to a readonly link you can share with others).
-
-We'll be adding these features as drop-in plugins for the npm package in the future.
-
-## Quick start
-
-**Note:** following instructions are for installing the Excalidraw [npm package](https://www.npmjs.com/package/@excalidraw/excalidraw) when integrating Excalidraw into your own app. To run the repository locally for development, please refer to our [Development Guide](https://docs.excalidraw.com/docs/introduction/development).
-
-Use `npm` or `yarn` to install the package.
+Install the fork directly:
 
 ```bash
-npm install react react-dom @excalidraw/excalidraw
-# or
-yarn add react react-dom @excalidraw/excalidraw
+npm install @miragari/mivo-excalidraw@0.18.1-mivo.10 react react-dom
 ```
 
-Check out our [documentation](https://docs.excalidraw.com/docs/@excalidraw/excalidraw/installation) for more details!
+```tsx
+import { Excalidraw } from "@miragari/mivo-excalidraw";
+import "@miragari/mivo-excalidraw/index.css";
+```
 
-## Contributing
+Existing applications can preserve their `@excalidraw/excalidraw` imports with an npm alias:
 
-- Missing something or found a bug? [Report here](https://github.com/excalidraw/excalidraw/issues).
-- Want to contribute? Check out our [contribution guide](https://docs.excalidraw.com/docs/introduction/contributing) or let us know on [Discord](https://discord.gg/UexuTaE).
-- Want to help with translations? See the [translation guide](https://docs.excalidraw.com/docs/introduction/contributing#translating).
+```json
+{
+  "dependencies": {
+    "@excalidraw/excalidraw": "npm:@miragari/mivo-excalidraw@0.18.1-mivo.10"
+  }
+}
+```
 
-## Integrations
+## Public entry points
 
-- [VScode extension](https://marketplace.visualstudio.com/items?itemName=pomdtr.excalidraw-editor)
-- [npm package](https://www.npmjs.com/package/@excalidraw/excalidraw)
+```ts
+import {
+  Excalidraw,
+  defineCustomElement,
+  defineCustomElementExtension,
+  defineCustomElementAssetStore,
+} from "@miragari/mivo-excalidraw";
 
-## Who's integrating Excalidraw
+import {
+  createCanvasController,
+  type CanvasOperation,
+} from "@miragari/mivo-excalidraw/canvas";
 
-[Google Cloud](https://googlecloudcheatsheet.withgoogle.com/architecture) • [Meta](https://meta.com/) • [CodeSandbox](https://codesandbox.io/) • [Obsidian Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) • [Replit](https://replit.com/) • [Slite](https://slite.com/) • [Notion](https://notion.so/) • [HackerRank](https://www.hackerrank.com/) • and many others
+import {
+  useCustomElementResource,
+} from "@miragari/mivo-excalidraw/custom-elements/react";
+```
 
-## Sponsors & support
+Custom Elements persist business identity and stable resource references in the scene. Interactive playback state remains editor-local in the Overlay Layer. Original files remain owned by the host; Excalidraw only owns renderable previews.
 
-If you like the project, you can become a sponsor at [Open Collective](https://opencollective.com/excalidraw) or use [Excalidraw+](https://plus.excalidraw.com/).
+## Architecture
 
-## Thank you for supporting Excalidraw
+```text
+Host application
+  ├─ business workflows and persistence
+  ├─ CustomElementAssetStore
+  └─ Custom Element extensions
+       ├─ deterministic Canvas/SVG renderer
+       ├─ editor-owned interactive overlays
+       └─ lifecycle callbacks
 
-[<img src="https://opencollective.com/excalidraw/tiers/sponsors/0/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/0/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/1/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/1/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/2/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/2/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/3/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/3/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/4/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/4/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/5/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/5/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/6/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/6/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/7/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/7/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/8/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/8/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/9/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/9/website) [<img src="https://opencollective.com/excalidraw/tiers/sponsors/10/avatar.svg?avatarHeight=120"/>](https://opencollective.com/excalidraw/tiers/sponsors/10/website)
+Application / Agent / MCP
+  └─ CanvasController.inspect() / apply()
+       └─ Excalidraw scene and imperative API
+```
 
-<a href="https://opencollective.com/excalidraw#category-CONTRIBUTE" target="_blank"><img src="https://opencollective.com/excalidraw/tiers/backers.svg?avatarHeight=32"/></a>
+The core is intentionally media-agnostic. Video, audio, image, workflow, and storage behavior belong in host extensions rather than new hard-coded Excalidraw element types.
 
-Last but not least, we're thankful to these companies for offering their services for free:
+## Documentation
 
-[![Vercel](./.github/assets/vercel.svg)](https://vercel.com) [![Sentry](./.github/assets/sentry.svg)](https://sentry.io) [![Crowdin](./.github/assets/crowdin.svg)](https://crowdin.com)
+- [Fork architecture, baseline, and public API inventory](./MIVO_FORK.md)
+- [Custom Elements](./dev-docs/docs/mivo/custom-elements.mdx)
+- [Canvas Core SDK](./dev-docs/docs/mivo/canvas-core.mdx)
+- [Release process](./dev-docs/docs/mivo/release.mdx)
+- [Published package README](./packages/excalidraw/README.md)
+
+## Development
+
+This repository keeps the upstream monorepo layout and Yarn 1 toolchain.
+
+```bash
+npx --yes yarn@1.22.22 install
+npx --yes yarn@1.22.22 start
+```
+
+Open `http://localhost:9901/custom-elements.html` for the isolated Custom Element fixture. It demonstrates mixed media imports, cached Canvas cards, interactive overlays, preview refresh, and an in-memory AssetStore.
+
+Before changing fork-specific APIs or architecture, read [`MIVO_FORK.md`](./MIVO_FORK.md) and [`AGENTS.md`](./AGENTS.md).
+
+## Releases
+
+Mivo builds are prereleases published under the npm `mivo` dist-tag. Every release is built from a clean commit, validates staged package contents, and smoke-installs the generated tarballs before publication.
+
+```bash
+npm install @miragari/mivo-excalidraw@mivo
+```
+
+See the [release guide](./dev-docs/docs/mivo/release.mdx) for the complete validation and publishing flow.
+
+## Upstream and license
+
+Mivo Excalidraw is based on the open-source [Excalidraw](https://github.com/excalidraw/excalidraw) project. Generally useful fixes should remain separable so they can be proposed upstream, while Mivo-specific APIs stay isolated behind documented extension points.
+
+Licensed under the [MIT License](./LICENSE). Excalidraw and its original contributors retain attribution for the upstream work.

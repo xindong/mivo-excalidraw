@@ -2,10 +2,10 @@
 
 This package is the Mivo-maintained Excalidraw fork published as `@miragari/mivo-excalidraw`. It adds native Custom Elements, an interactive Overlay Layer, host-owned resource and Preview lifecycles, and the Canvas Core SDK for applications, agents, and MCP tools.
 
-Repository maintainers and coding agents must read the canonical [`MIVO_FORK.md`](https://github.com/xindong/mivo-excalidraw/blob/master/MIVO_FORK.md). Consumer documentation is shipped in the package `docs/` directory and lives under `dev-docs/docs/mivo/` in the repository.
+Repository maintainers and coding agents must read the canonical [`MIVO_FORK.md`](https://github.com/xindong/mivo-excalidraw/blob/main/MIVO_FORK.md). Consumer documentation is shipped in the package `docs/` directory and lives under `dev-docs/docs/mivo/` in the repository.
 
 ```bash
-npm install @miragari/mivo-excalidraw@0.18.1-mivo.4 react react-dom
+npm install @miragari/mivo-excalidraw@0.18.1-mivo.10 react react-dom
 ```
 
 ```tsx
