@@ -1,28 +1,28 @@
 # Mivo Excalidraw
 
-[![npm mivo version](https://img.shields.io/npm/v/%40miragari%2Fmivo-excalidraw/mivo?label=npm%20mivo)](https://www.npmjs.com/package/@miragari/mivo-excalidraw)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![npm mivo 版本](https://img.shields.io/npm/v/%40miragari%2Fmivo-excalidraw/mivo?label=npm%20mivo)](https://www.npmjs.com/package/@miragari/mivo-excalidraw)
+[![MIT 许可证](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-Mivo Excalidraw is a maintained fork of [Excalidraw](https://github.com/excalidraw/excalidraw) for applications that need native business elements, interactive DOM overlays, host-owned assets, and a stable canvas automation API.
+Mivo Excalidraw 是一个持续维护的 [Excalidraw](https://github.com/excalidraw/excalidraw) fork，面向需要原生业务元素、交互式 DOM 覆盖层、宿主资源管理和稳定画布自动化 API 的应用。
 
-The fork stays compatible with the upstream React editor while publishing the Mivo-specific SDK as [`@miragari/mivo-excalidraw`](https://www.npmjs.com/package/@miragari/mivo-excalidraw). The current prerelease line is `0.18.1-mivo.x` and is published under the npm `mivo` dist-tag.
+本项目保持对上游 React 编辑器的兼容，同时通过 [`@miragari/mivo-excalidraw`](https://www.npmjs.com/package/@miragari/mivo-excalidraw) 发布 Mivo 专用 SDK。当前预发布版本线为 `0.18.1-mivo.x`，通过 npm 的 `mivo` dist-tag 发布。
 
-## Why this fork exists
+## 为什么需要这个 fork
 
-Application-specific media cards and agent-driven canvas operations should not depend on private editor internals. Mivo Excalidraw adds public, reusable primitives for those integrations while keeping media decoding, storage, playback, and business workflows in the host application.
+应用专属的媒体卡片和 Agent 画布操作不应该依赖编辑器的私有内部实现。Mivo Excalidraw 提供公开、可复用的扩展基础能力，同时将媒体解码、存储、播放和业务工作流继续留在宿主应用中。
 
-| Capability | What it provides |
+| 能力 | 说明 |
 | --- | --- |
-| Native Custom Elements | Serializable host-defined elements with deterministic Canvas/SVG rendering, selection, resize, clipboard, restore, and export support. |
-| Custom Element extensions | One registration unit for definitions, overlays, collection lifecycle, selection changes, and viewport changes. |
-| Overlay Layer | Editor-owned `surface`, `panel`, and `popover` DOM overlays with coordinate, pointer, wheel, presence, transition, and shared-state handling. |
-| Asset and Preview lifecycle | Host-owned original resources through `CustomElementAssetStore`, plus Excalidraw-owned static previews through `previewFileId`. |
-| Canvas Core SDK | Typed inspect/apply operations, pagination, revisions, structured errors, extensions, and capability discovery for apps, agents, and MCP tools. |
-| Host capabilities | Explicit control over editor UI, viewport behavior, Custom Element selection, resize, rotation, double-click, and renderer caching. |
+| 原生 Custom Element | 支持宿主定义可序列化元素，并具备确定性的 Canvas/SVG 渲染、选择、缩放、剪贴板、恢复和导出能力。 |
+| Custom Element Extension | 通过一个注册单元统一声明 Definition、Overlay、集合生命周期、选择变化和视口变化。 |
+| Overlay Layer | 由编辑器管理 `surface`、`panel` 和 `popover` DOM 覆盖层，统一处理坐标、指针、滚轮、Presence、过渡动画和共享状态。 |
+| Resource 与 Preview 生命周期 | 原始资源由宿主通过 `CustomElementAssetStore` 管理，静态预览由 Excalidraw 通过 `previewFileId` 管理。 |
+| Canvas Core SDK | 为应用、Agent 和 MCP 工具提供类型化 inspect/apply 操作、分页、revision、结构化错误、扩展和能力发现。 |
+| 宿主能力配置 | 显式控制编辑器 UI、视口行为、Custom Element 选择、缩放、旋转、双击和渲染缓存。 |
 
-## Install
+## 安装
 
-Install the fork directly:
+直接安装 fork：
 
 ```bash
 npm install @miragari/mivo-excalidraw@0.18.1-mivo.10 react react-dom
@@ -33,7 +33,7 @@ import { Excalidraw } from "@miragari/mivo-excalidraw";
 import "@miragari/mivo-excalidraw/index.css";
 ```
 
-Existing applications can preserve their `@excalidraw/excalidraw` imports with an npm alias:
+已有应用可以通过 npm alias 保留原来的 `@excalidraw/excalidraw` import 路径：
 
 ```json
 {
@@ -43,7 +43,7 @@ Existing applications can preserve their `@excalidraw/excalidraw` imports with a
 }
 ```
 
-## Public entry points
+## 公开入口
 
 ```ts
 import {
@@ -63,59 +63,59 @@ import {
 } from "@miragari/mivo-excalidraw/custom-elements/react";
 ```
 
-Custom Elements persist business identity and stable resource references in the scene. Interactive playback state remains editor-local in the Overlay Layer. Original files remain owned by the host; Excalidraw only owns renderable previews.
+Custom Element 将业务身份和稳定资源引用持久化到场景中；交互式播放状态只保存在编辑器本地的 Overlay Layer。原始文件始终由宿主管理，Excalidraw 只负责可渲染的静态 Preview。
 
-## Architecture
+## 架构
 
 ```text
-Host application
-  ├─ business workflows and persistence
+宿主应用
+  ├─ 业务工作流与持久化
   ├─ CustomElementAssetStore
-  └─ Custom Element extensions
-       ├─ deterministic Canvas/SVG renderer
-       ├─ editor-owned interactive overlays
-       └─ lifecycle callbacks
+  └─ Custom Element Extension
+       ├─ 确定性的 Canvas/SVG Renderer
+       ├─ 编辑器管理的交互式 Overlay
+       └─ 生命周期回调
 
-Application / Agent / MCP
+应用 / Agent / MCP
   └─ CanvasController.inspect() / apply()
-       └─ Excalidraw scene and imperative API
+       └─ Excalidraw 场景与 Imperative API
 ```
 
-The core is intentionally media-agnostic. Video, audio, image, workflow, and storage behavior belong in host extensions rather than new hard-coded Excalidraw element types.
+核心层刻意保持媒体无关。视频、音频、图片、工作流和存储逻辑属于宿主扩展，不应成为硬编码的新 Excalidraw 元素类型。
 
-## Documentation
+## 文档
 
-- [Fork architecture, baseline, and public API inventory](./MIVO_FORK.md)
-- [Custom Elements](./dev-docs/docs/mivo/custom-elements.mdx)
-- [Canvas Core SDK](./dev-docs/docs/mivo/canvas-core.mdx)
-- [Release process](./dev-docs/docs/mivo/release.mdx)
-- [Published package README](./packages/excalidraw/README.md)
+- [Fork 架构、上游基线与公开 API 清单](./MIVO_FORK.md)
+- [Custom Element 开发文档](./dev-docs/docs/mivo/custom-elements.mdx)
+- [Canvas Core SDK 文档](./dev-docs/docs/mivo/canvas-core.mdx)
+- [发布流程](./dev-docs/docs/mivo/release.mdx)
+- [npm 包 README](./packages/excalidraw/README.md)
 
-## Development
+## 开发
 
-This repository keeps the upstream monorepo layout and Yarn 1 toolchain.
+本仓库保留上游 monorepo 结构，并继续使用 Yarn 1 工具链。
 
 ```bash
 npx --yes yarn@1.22.22 install
 npx --yes yarn@1.22.22 start
 ```
 
-Open `http://localhost:9901/custom-elements.html` for the isolated Custom Element fixture. It demonstrates mixed media imports, cached Canvas cards, interactive overlays, preview refresh, and an in-memory AssetStore.
+打开 `http://localhost:9901/custom-elements.html` 可以访问独立的 Custom Element 开发夹具。该页面演示混合媒体导入、带缓存的 Canvas 卡片、交互式 Overlay、Preview 刷新和内存 AssetStore。
 
-Before changing fork-specific APIs or architecture, read [`MIVO_FORK.md`](./MIVO_FORK.md) and [`AGENTS.md`](./AGENTS.md).
+修改 fork 专属 API 或架构前，请先阅读 [`MIVO_FORK.md`](./MIVO_FORK.md) 和 [`AGENTS.md`](./AGENTS.md)。
 
-## Releases
+## 发布
 
-Mivo builds are prereleases published under the npm `mivo` dist-tag. Every release is built from a clean commit, validates staged package contents, and smoke-installs the generated tarballs before publication.
+Mivo 构建以预发布版本形式通过 npm 的 `mivo` dist-tag 发布。每次发布都必须基于干净提交构建，校验暂存包内容，并在正式发布前对生成的 tarball 执行安装 smoke test。
 
 ```bash
 npm install @miragari/mivo-excalidraw@mivo
 ```
 
-See the [release guide](./dev-docs/docs/mivo/release.mdx) for the complete validation and publishing flow.
+完整校验和发布流程见[发布指南](./dev-docs/docs/mivo/release.mdx)。
 
-## Upstream and license
+## 上游与许可证
 
-Mivo Excalidraw is based on the open-source [Excalidraw](https://github.com/excalidraw/excalidraw) project. Generally useful fixes should remain separable so they can be proposed upstream, while Mivo-specific APIs stay isolated behind documented extension points.
+Mivo Excalidraw 基于开源项目 [Excalidraw](https://github.com/excalidraw/excalidraw)。具有通用价值的修复应尽量保持独立，以便回馈上游；Mivo 专属 API 则通过明确记录的扩展点与上游实现隔离。
 
-Licensed under the [MIT License](./LICENSE). Excalidraw and its original contributors retain attribution for the upstream work.
+本项目遵循 [MIT 许可证](./LICENSE)。Excalidraw 及其原始贡献者保留对上游工作的署名权。
