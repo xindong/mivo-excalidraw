@@ -100,7 +100,9 @@ export const CustomElementLifecycleLayer = ({
   runtime: CustomElementOverlayRuntime;
 }) => {
   const registryRevision = useRegistryRevision();
-  const abortController = useMemo(() => new AbortController(), []);
+  const [abortController, setAbortController] = useState(
+    () => new AbortController(),
+  );
   const elementSets = useRef(new Map<string, ElementSet>());
   const elementStates = useRef(new Map<string, ElementState>());
   const visibleElementIds = useMemo(
@@ -108,13 +110,25 @@ export const CustomElementLifecycleLayer = ({
     [visibleElements],
   );
 
-  useEffect(
-    () =>
-      api.onEvent("editor:unmount", () => {
-        abortController.abort();
-      }),
-    [abortController, api],
-  );
+  useEffect(() => {
+    if (abortController.signal.aborted) {
+      setAbortController(new AbortController());
+      return;
+    }
+    const unsubscribe = api.onEvent("editor:unmount", () => {
+      abortController.abort();
+      // React StrictMode simulates an editor unmount while preserving Hook
+      // state. Renew the scope when this layer survives that event so the
+      // remounted editor does not inherit a permanently aborted signal.
+      setAbortController((current) =>
+        current === abortController ? new AbortController() : current,
+      );
+    });
+    return () => {
+      unsubscribe();
+      abortController.abort();
+    };
+  }, [abortController, api]);
 
   useEffect(() => {
     const nextSets = new Map<string, ElementSet>();
