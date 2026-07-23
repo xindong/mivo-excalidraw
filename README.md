@@ -25,7 +25,7 @@ Mivo Excalidraw 是一个持续维护的 [Excalidraw](https://github.com/excalid
 直接安装 fork：
 
 ```bash
-npm install @miragari/mivo-excalidraw@0.18.1-mivo.10 react react-dom
+npm install @miragari/mivo-excalidraw@0.18.1-mivo.11 react react-dom
 ```
 
 ```tsx
@@ -38,7 +38,7 @@ import "@miragari/mivo-excalidraw/index.css";
 ```json
 {
   "dependencies": {
-    "@excalidraw/excalidraw": "npm:@miragari/mivo-excalidraw@0.18.1-mivo.10"
+    "@excalidraw/excalidraw": "npm:@miragari/mivo-excalidraw@0.18.1-mivo.11"
   }
 }
 ```

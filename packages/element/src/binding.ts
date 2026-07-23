@@ -1158,6 +1158,7 @@ export const updateBoundElements = (
   scene: Scene,
   options?: {
     simultaneouslyUpdated?: readonly NonDeletedExcalidrawElement[];
+    simultaneouslyUpdatedElementIds?: ReadonlySet<ExcalidrawElement["id"]>;
     changedElements?: Map<string, ExcalidrawElement>;
   },
 ) => {
@@ -1165,10 +1166,11 @@ export const updateBoundElements = (
     return;
   }
 
-  const { simultaneouslyUpdated } = options ?? {};
-  const simultaneouslyUpdatedElementIds = getSimultaneouslyUpdatedElementIds(
-    simultaneouslyUpdated,
-  );
+  const { simultaneouslyUpdated, simultaneouslyUpdatedElementIds } =
+    options ?? {};
+  const resolvedSimultaneouslyUpdatedElementIds =
+    simultaneouslyUpdatedElementIds ??
+    getSimultaneouslyUpdatedElementIds(simultaneouslyUpdated);
 
   let elementsMap: ElementsMap = scene.getNonDeletedElementsMap();
   if (options?.changedElements) {
@@ -1207,7 +1209,7 @@ export const updateBoundElements = (
       : null;
 
     // `linearElement` is being moved/scaled already, just update the binding
-    if (simultaneouslyUpdatedElementIds.has(element.id)) {
+    if (resolvedSimultaneouslyUpdatedElementIds.has(element.id)) {
       return;
     }
 

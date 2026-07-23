@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.10`
+- Current prerelease: `0.18.1-mivo.11`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -160,6 +160,8 @@ The in-memory store is intentionally non-persistent. Production hosts must provi
 ## Performance model
 
 - Custom Canvas renderers use cached offscreen canvases.
+- Translating a Custom Element by changing only `x`/`y` reuses its offscreen
+  canvas; visual data, preview, and geometry changes still invalidate it.
 - Source cache mode keeps a stable high-quality cache across zoom changes.
 - Overlay entrance updates are coalesced into one animation-frame state commit.
 - Batch Preview files are staged and committed once per import batch.

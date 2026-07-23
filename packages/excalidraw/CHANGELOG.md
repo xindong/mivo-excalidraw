@@ -13,6 +13,15 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.11
+
+### Mivo fork fixes
+
+- Reused Custom Element offscreen canvases during pure `x`/`y` translation
+  instead of regenerating fixed- or source-scale caches on every pointer move.
+- Reused the selected-element ID set while updating bindings during multi-node
+  dragging, avoiding repeated quadratic collection allocation.
+
 ## 0.18.1-mivo.5
 
 ### Mivo fork features

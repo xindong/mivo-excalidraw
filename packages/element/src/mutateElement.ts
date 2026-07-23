@@ -127,12 +127,21 @@ export const mutateElement = <TElement extends Mutable<ExcalidrawElement>>(
     return element;
   }
 
+  // Custom Elements render into an offscreen canvas just like native images.
+  // Translating the element does not change that bitmap, so keep the cached
+  // canvas and only draw it at the new scene coordinates. Invalidating it on
+  // every pointer move is especially expensive for fixed/source cache modes
+  // and scales linearly with the number of dragged Custom Elements.
+  const isCustomElementTranslationOnly =
+    element.type === "custom" &&
+    Object.keys(updates).every((key) => key === "x" || key === "y");
+
   if (
     typeof updates.height !== "undefined" ||
     typeof updates.width !== "undefined" ||
     typeof fileId != "undefined" ||
     typeof points !== "undefined" ||
-    element.type === "custom"
+    (element.type === "custom" && !isCustomElementTranslationOnly)
   ) {
     ShapeCache.delete(element);
   }
