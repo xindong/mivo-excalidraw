@@ -433,7 +433,18 @@ export type CustomElementRenderer<
       }) => CustomElementViewBox);
   render: (context: {
     element: Readonly<TypedExcalidrawCustomElement<TData>>;
+    /**
+     * Commands written here are cached in the element's offscreen canvas.
+     * Use `foregroundPainter` for small details that must be rasterized at
+     * the final viewport scale.
+     */
     painter: CustomElementPainter;
+    /**
+     * Commands written here bypass the element's offscreen bitmap and are
+     * replayed directly onto the main canvas after the cached layer. The two
+     * painters have independent save/restore and clipping stacks.
+     */
+    foregroundPainter: CustomElementPainter;
     theme: Theme;
     /** Logical dimensions painter commands should use. */
     viewBox: CustomElementViewBox;
@@ -673,15 +684,24 @@ const renderFallback = (
   });
 };
 
-export const createCustomElementDrawCommands = (
+export type CustomElementDrawCommandLayers = Readonly<{
+  cached: readonly CustomElementDrawCommand[];
+  foreground: readonly CustomElementDrawCommand[];
+}>;
+
+export const createCustomElementDrawCommandLayers = (
   element: Readonly<ExcalidrawCustomElement>,
   theme: Theme,
-) => {
+): CustomElementDrawCommandLayers => {
   const painter = new CustomElementPainter();
+  const foregroundPainter = new CustomElementPainter();
   const renderer = getCustomElementRenderer(element.rendererId);
   if (!renderer) {
     renderFallback(painter, element, theme);
-    return painter.getCommands();
+    return {
+      cached: painter.getCommands(),
+      foreground: foregroundPainter.getCommands(),
+    };
   }
   try {
     const configuredViewBox =
@@ -709,11 +729,33 @@ export const createCustomElementDrawCommands = (
         element.height / configuredViewBox.height,
       );
     }
-    renderer.render({ element, painter, theme, viewBox });
+    renderer.render({
+      element,
+      painter,
+      foregroundPainter,
+      theme,
+      viewBox,
+    });
     if (configuredViewBox) {
       painter.restore();
     }
-    return painter.getCommands();
+    const foregroundCommands = foregroundPainter.getCommands();
+    return {
+      cached: painter.getCommands(),
+      foreground:
+        configuredViewBox && foregroundCommands.length
+          ? [
+              { type: "save" },
+              {
+                type: "scale",
+                scaleX: element.width / configuredViewBox.width,
+                scaleY: element.height / configuredViewBox.height,
+              },
+              ...foregroundCommands,
+              { type: "restore" },
+            ]
+          : foregroundCommands,
+    };
   } catch (error) {
     console.error(
       `Custom element renderer "${element.rendererId}" failed`,
@@ -721,8 +763,19 @@ export const createCustomElementDrawCommands = (
     );
     const fallbackPainter = new CustomElementPainter();
     renderFallback(fallbackPainter, element, theme);
-    return fallbackPainter.getCommands();
+    return {
+      cached: fallbackPainter.getCommands(),
+      foreground: [],
+    };
   }
+};
+
+export const createCustomElementDrawCommands = (
+  element: Readonly<ExcalidrawCustomElement>,
+  theme: Theme,
+) => {
+  const layers = createCustomElementDrawCommandLayers(element, theme);
+  return [...layers.cached, ...layers.foreground];
 };
 
 const roundedRectPath = (

@@ -13,6 +13,14 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.12
+
+### Mivo fork features
+
+- Added a Custom Element `foregroundPainter` command layer that bypasses the
+  offscreen element bitmap and replays directly on the main Canvas at the final
+  viewport scale, while remaining composed into Canvas and SVG exports.
+
 ## 0.18.1-mivo.11
 
 ### Mivo fork fixes

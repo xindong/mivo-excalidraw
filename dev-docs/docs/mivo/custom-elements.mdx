@@ -22,11 +22,11 @@ const definition = defineCustomElement({
       border: { color: "#5e5ad8", width: 1, radius: 8 },
       transformHandles: { margin: 0, spacing: 0 },
     },
-    render: ({ element, painter, viewBox }) => {
+    render: ({ element, painter, foregroundPainter, viewBox }) => {
       painter.rect(0, 0, viewBox.width, viewBox.height, {
         fill: "#fff",
       });
-      painter.text(String(element.data.name ?? "Asset"), 16, 24);
+      foregroundPainter.text(String(element.data.name ?? "Asset"), 16, 24);
     },
   },
 });
@@ -60,6 +60,27 @@ here rather than in Canvas renderers or overlay mount callbacks. Geometry-only
 edits do not produce `updated` entries.
 
 React applications may call `useRegisterCustomElement(extension)` instead.
+
+## Cached and foreground Canvas layers
+
+Renderer commands written to `painter` are rasterized into the Custom
+Element's offscreen cache according to its `cache` strategy. Commands written
+to `foregroundPainter` are stored with that cache and replayed directly on the
+main Canvas after the cached bitmap:
+
+```ts
+render: ({ painter, foregroundPainter, viewBox }) => {
+  painter.image(previewFileId, 0, 0, viewBox.width, viewBox.height);
+  foregroundPainter.text("Sharp at the current zoom", 16, 24);
+}
+```
+
+Use the foreground layer for a small number of text or vector commands whose
+sharpness must follow the final viewport scale. Keep images, complex paths,
+glows, and other expensive drawing in the cached layer. The two painters have
+independent save/restore and clipping stacks, so foreground clipping must be
+declared on `foregroundPainter` itself. Canvas and SVG exports compose the
+cached layer first and the foreground layer second.
 
 ## Selection and resize policy
 

@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.11`
+- Current prerelease: `0.18.1-mivo.12`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -26,7 +26,7 @@ The Mivo package family renames the required upstream workspace packages under t
 - `resource`: stable host-owned reference to the original asset.
 - `previewFileId`: Excalidraw-owned image used by the Canvas renderer.
 
-Custom renderers use `CustomElementPainter`. They may declare a logical `viewBox` and a zoom/source/fixed cache strategy. Painter commands are shared by interactive Canvas rendering and SVG export.
+Custom renderers use `CustomElementPainter`. They may declare a logical `viewBox` and a zoom/source/fixed cache strategy. The normal `painter` writes into the element's offscreen cache, while `foregroundPainter` records lightweight commands that are replayed directly on the main Canvas at the final viewport scale. Both layers are combined for Canvas and SVG export.
 
 ### Custom Element Extension API
 
@@ -160,6 +160,9 @@ The in-memory store is intentionally non-persistent. Production hosts must provi
 ## Performance model
 
 - Custom Canvas renderers use cached offscreen canvases.
+- Renderer commands written to `foregroundPainter` bypass the offscreen bitmap
+  and are replayed after the cached layer, keeping small text sharp without
+  regenerating the full element canvas during zoom.
 - Translating a Custom Element by changing only `x`/`y` reuses its offscreen
   canvas; visual data, preview, and geometry changes still invalidate it.
 - Source cache mode keeps a stable high-quality cache across zoom changes.

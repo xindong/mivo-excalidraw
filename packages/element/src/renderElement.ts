@@ -68,6 +68,7 @@ import { getCornerRadius } from "./utils";
 
 import { ShapeCache } from "./shape";
 import {
+  createCustomElementDrawCommandLayers,
   createCustomElementDrawCommands,
   drawCustomElementCommandsToCanvas,
   getCustomElementRenderer,
@@ -75,6 +76,7 @@ import {
   getImageDrawRect,
   shouldRegenerateCustomElementCanvasForScale,
 } from "./customElement";
+import type { CustomElementDrawCommand } from "./customElement";
 
 import type {
   ExcalidrawElement,
@@ -152,6 +154,7 @@ export interface ExcalidrawElementWithCanvas {
   imageCrop: ExcalidrawImageElement["crop"] | null;
   containingFrameOpacity: number;
   customRendererRevision: number;
+  customForegroundCommands: readonly CustomElementDrawCommand[] | null;
 }
 
 const getCustomElementCanvasScale = (
@@ -189,7 +192,10 @@ const getCustomElementCanvasScale = (
   let scaleY = 1;
   const stack: Array<readonly [number, number]> = [];
   let sourceScale = 1;
-  const commands = createCustomElementDrawCommands(element, renderConfig.theme);
+  const commands = createCustomElementDrawCommandLayers(
+    element,
+    renderConfig.theme,
+  ).cached;
   for (const command of commands) {
     if (command.type === "save") {
       stack.push([scaleX, scaleY]);
@@ -314,6 +320,11 @@ const generateElementCanvas = (
     return null;
   }
 
+  const customCommandLayers =
+    element.type === "custom"
+      ? createCustomElementDrawCommandLayers(element, renderConfig.theme)
+      : null;
+
   canvas.width = width;
   canvas.height = height;
 
@@ -345,7 +356,13 @@ const generateElementCanvas = (
 
   const rc = rough.canvas(canvas);
 
-  drawElementOnCanvas(element, rc, context, renderConfig);
+  drawElementOnCanvas(
+    element,
+    rc,
+    context,
+    renderConfig,
+    customCommandLayers?.cached,
+  );
 
   context.restore();
 
@@ -362,6 +379,7 @@ const generateElementCanvas = (
       getContainingFrame(element, elementsMap)?.opacity || 100,
     imageCrop: isImageElement(element) ? element.crop : null,
     customRendererRevision: getCustomElementRendererRevision(),
+    customForegroundCommands: customCommandLayers?.foreground ?? null,
   };
 };
 
@@ -416,6 +434,7 @@ const drawElementOnCanvas = (
   rc: RoughCanvas,
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
+  customCommands?: readonly CustomElementDrawCommand[],
 ) => {
   switch (element.type) {
     case "rectangle":
@@ -572,10 +591,9 @@ const drawElementOnCanvas = (
     }
     case "custom": {
       context.save();
-      const commands = createCustomElementDrawCommands(
-        element,
-        renderConfig.theme,
-      );
+      const commands =
+        customCommands ??
+        createCustomElementDrawCommands(element, renderConfig.theme);
       drawCustomElementCommandsToCanvas(context, commands, (fileId) => {
         const image = renderConfig.imageCache.get(fileId)?.image;
         return image && !(image instanceof Promise) ? image : null;
@@ -816,6 +834,33 @@ const drawElementFromCanvas = (
     );
   }
   context.restore();
+
+  if (
+    element.type === "custom" &&
+    elementWithCanvas.customForegroundCommands?.length
+  ) {
+    const centerX = (x1 + x2) / 2;
+    const centerY = (y1 + y2) / 2;
+    const shiftX = (x2 - x1) / 2 - (element.x - x1);
+    const shiftY = (y2 - y1) / 2 - (element.y - y1);
+
+    context.save();
+    context.translate(
+      centerX + appState.scrollX,
+      centerY + appState.scrollY,
+    );
+    context.rotate(element.angle);
+    context.translate(-shiftX, -shiftY);
+    drawCustomElementCommandsToCanvas(
+      context,
+      elementWithCanvas.customForegroundCommands,
+      (fileId) => {
+        const image = renderConfig.imageCache.get(fileId)?.image;
+        return image && !(image instanceof Promise) ? image : null;
+      },
+    );
+    context.restore();
+  }
 
   // Clear the nested element we appended to the DOM
 };
