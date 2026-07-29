@@ -165,6 +165,11 @@ The in-memory store is intentionally non-persistent. Production hosts must provi
   regenerating the full element canvas during zoom.
 - Translating a Custom Element by changing only `x`/`y` reuses its offscreen
   canvas; visual data, preview, and geometry changes still invalidate it.
+- The `cached` zoom render strategy snapshots the complete static viewport
+  during continuous zoom and transforms that one bitmap per frame. Scene,
+  selection, theme, grid, and viewport-size changes invalidate the snapshot;
+  the interactive Canvas remains live, and the static scene is fully redrawn
+  when zoom settles.
 - Source cache mode keeps a stable high-quality cache across zoom changes.
 - Overlay entrance updates are coalesced into one animation-frame state commit.
 - Batch Preview files are staged and committed once per import batch.

@@ -86,6 +86,11 @@ export type StaticSceneRenderConfig = {
   elementsMap: RenderableElementsMap;
   allElementsMap: NonDeletedSceneElementsMap;
   visibleElements: readonly NonDeletedExcalidrawElement[];
+  /**
+   * Stable identity of the scene and selection currently painted on the
+   * interactive editor's static canvas. Export callers omit this.
+   */
+  viewportSnapshotKey?: string;
   scale: number;
   appState: StaticCanvasAppState;
   renderConfig: StaticCanvasRenderConfig;

@@ -25,6 +25,7 @@ type StaticCanvasProps = {
   visibleElements: readonly NonDeletedExcalidrawElement[];
   canvasNonce: string;
   selectionNonce: number | undefined;
+  viewportSnapshotEnabled: boolean;
   scale: number;
   appState: StaticCanvasAppState;
   renderConfig: StaticCanvasRenderConfig;
@@ -56,6 +57,9 @@ const StaticCanvas = (props: StaticCanvasProps) => {
       canvas.classList.add("excalidraw__canvas", "static");
     }
 
+    const selectedElementKey = Object.keys(props.appState.selectedElementIds)
+      .filter((id) => props.appState.selectedElementIds[id])
+      .join(",");
     renderStaticScene(
       {
         canvas,
@@ -64,6 +68,11 @@ const StaticCanvas = (props: StaticCanvasProps) => {
         elementsMap: props.elementsMap,
         allElementsMap: props.allElementsMap,
         visibleElements: props.visibleElements,
+        viewportSnapshotKey: props.viewportSnapshotEnabled
+          ? `${props.canvasNonce}:${props.selectionNonce ?? ""}:${
+              props.appState.frameToHighlight?.id ?? ""
+            }:${selectedElementKey}`
+          : undefined,
         appState: props.appState,
         renderConfig: props.renderConfig,
       },
@@ -111,6 +120,7 @@ const areEqual = (
 ) => {
   if (
     prevProps.canvasNonce !== nextProps.canvasNonce ||
+    prevProps.viewportSnapshotEnabled !== nextProps.viewportSnapshotEnabled ||
     prevProps.scale !== nextProps.scale ||
     // we need to memoize on elementsMap because they may have renewed
     // even if canvasNonce didn't change (e.g. we filter elements out based

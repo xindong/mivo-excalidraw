@@ -2564,6 +2564,9 @@ class App extends React.Component<AppProps, AppState> {
                             selectionNonce={
                               this.state.selectionElement?.versionNonce
                             }
+                            viewportSnapshotEnabled={
+                              this.props.zoomRenderStrategy === "cached"
+                            }
                             scale={window.devicePixelRatio}
                             appState={this.state}
                             renderConfig={{

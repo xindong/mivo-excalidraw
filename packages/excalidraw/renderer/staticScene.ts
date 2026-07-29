@@ -54,6 +54,140 @@ const GridLineColor = {
   },
 } as const;
 
+type StaticViewportSnapshotState = {
+  canvasWidth: number;
+  canvasHeight: number;
+  scale: number;
+  snapshotKey: string;
+  zoom: number;
+  scrollX: number;
+  scrollY: number;
+  theme: StaticCanvasAppState["theme"];
+  viewBackgroundColor: StaticCanvasAppState["viewBackgroundColor"];
+  gridSize: StaticCanvasAppState["gridSize"];
+  gridStep: StaticCanvasAppState["gridStep"];
+  renderGrid: boolean;
+};
+
+type StaticViewportSnapshotCache = {
+  lastFullRender: StaticViewportSnapshotState | null;
+  snapshot: {
+    canvas: HTMLCanvasElement;
+    state: StaticViewportSnapshotState;
+  } | null;
+};
+
+const staticViewportSnapshots = new WeakMap<
+  HTMLCanvasElement,
+  StaticViewportSnapshotCache
+>();
+
+const getStaticViewportSnapshotState = ({
+  canvas,
+  scale,
+  viewportSnapshotKey,
+  appState,
+  renderConfig,
+}: StaticSceneRenderConfig): StaticViewportSnapshotState | null => {
+  if (!viewportSnapshotKey || renderConfig.isExporting) {
+    return null;
+  }
+  return {
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    scale,
+    snapshotKey: viewportSnapshotKey,
+    zoom: appState.zoom.value,
+    scrollX: appState.scrollX,
+    scrollY: appState.scrollY,
+    theme: appState.theme,
+    viewBackgroundColor: appState.viewBackgroundColor,
+    gridSize: appState.gridSize,
+    gridStep: appState.gridStep,
+    renderGrid: renderConfig.renderGrid,
+  };
+};
+
+const isCompatibleStaticViewportSnapshot = (
+  previous: StaticViewportSnapshotState,
+  next: StaticViewportSnapshotState,
+) =>
+  previous.canvasWidth === next.canvasWidth &&
+  previous.canvasHeight === next.canvasHeight &&
+  previous.scale === next.scale &&
+  previous.snapshotKey === next.snapshotKey &&
+  previous.theme === next.theme &&
+  previous.viewBackgroundColor === next.viewBackgroundColor &&
+  previous.gridSize === next.gridSize &&
+  previous.gridStep === next.gridStep &&
+  previous.renderGrid === next.renderGrid;
+
+export const getStaticViewportSnapshotTransform = (
+  previous: Pick<StaticViewportSnapshotState, "zoom" | "scrollX" | "scrollY">,
+  next: Pick<StaticViewportSnapshotState, "zoom" | "scrollX" | "scrollY">,
+) => ({
+  scale: next.zoom / previous.zoom,
+  translateX: next.zoom * (next.scrollX - previous.scrollX),
+  translateY: next.zoom * (next.scrollY - previous.scrollY),
+});
+
+const renderStaticViewportSnapshot = (
+  config: StaticSceneRenderConfig,
+  normalizedWidth: number,
+  normalizedHeight: number,
+  nextState: StaticViewportSnapshotState,
+) => {
+  if (!config.appState.shouldCacheIgnoreZoom) {
+    return false;
+  }
+
+  const cache = staticViewportSnapshots.get(config.canvas);
+  if (
+    !cache?.lastFullRender ||
+    !isCompatibleStaticViewportSnapshot(cache.lastFullRender, nextState)
+  ) {
+    return false;
+  }
+
+  let snapshot = cache.snapshot;
+  if (
+    !snapshot ||
+    !isCompatibleStaticViewportSnapshot(snapshot.state, nextState)
+  ) {
+    const snapshotCanvas = document.createElement("canvas");
+    snapshotCanvas.width = config.canvas.width;
+    snapshotCanvas.height = config.canvas.height;
+    snapshotCanvas.getContext("2d")?.drawImage(config.canvas, 0, 0);
+    snapshot = {
+      canvas: snapshotCanvas,
+      state: cache.lastFullRender,
+    };
+    cache.snapshot = snapshot;
+  }
+
+  const context = bootstrapCanvas({
+    canvas: config.canvas,
+    scale: config.scale,
+    normalizedWidth,
+    normalizedHeight,
+    theme: config.appState.theme,
+    isExporting: config.renderConfig.isExporting,
+    viewBackgroundColor: config.appState.viewBackgroundColor,
+  });
+  const transform = getStaticViewportSnapshotTransform(
+    snapshot.state,
+    nextState,
+  );
+  context.drawImage(
+    snapshot.canvas,
+    transform.translateX,
+    transform.translateY,
+    normalizedWidth * transform.scale,
+    normalizedHeight * transform.scale,
+  );
+  return true;
+};
+
 const strokeGrid = (
   context: CanvasRenderingContext2D,
   /** grid cell pixel size */
@@ -233,16 +367,17 @@ const renderLinkIcon = (
     context.restore();
   }
 };
-const _renderStaticScene = ({
-  canvas,
-  rc,
-  elementsMap,
-  allElementsMap,
-  visibleElements,
-  scale,
-  appState,
-  renderConfig,
-}: StaticSceneRenderConfig) => {
+const _renderStaticScene = (config: StaticSceneRenderConfig) => {
+  const {
+    canvas,
+    rc,
+    elementsMap,
+    allElementsMap,
+    visibleElements,
+    scale,
+    appState,
+    renderConfig,
+  } = config;
   if (canvas === null) {
     return;
   }
@@ -253,6 +388,18 @@ const _renderStaticScene = ({
     canvas,
     scale,
   );
+  const viewportSnapshotState = getStaticViewportSnapshotState(config);
+  if (
+    viewportSnapshotState &&
+    renderStaticViewportSnapshot(
+      config,
+      normalizedWidth,
+      normalizedHeight,
+      viewportSnapshotState,
+    )
+  ) {
+    return;
+  }
 
   const context = bootstrapCanvas({
     canvas,
@@ -483,6 +630,15 @@ const _renderStaticScene = ({
       console.error(error);
     }
   });
+
+  if (viewportSnapshotState) {
+    staticViewportSnapshots.set(canvas, {
+      lastFullRender: viewportSnapshotState,
+      snapshot: null,
+    });
+  } else {
+    staticViewportSnapshots.delete(canvas);
+  }
 };
 
 /** throttled to animation framerate */

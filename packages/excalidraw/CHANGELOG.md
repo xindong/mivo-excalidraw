@@ -13,6 +13,15 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.13
+
+### Mivo fork performance
+
+- Added an opt-in whole-viewport snapshot path for the `cached` zoom render
+  strategy. Continuous zoom now transforms one static Canvas bitmap instead of
+  compositing every visible element on every frame, while scene, selection,
+  theme, grid, and viewport-size changes invalidate the snapshot.
+
 ## 0.18.1-mivo.12
 
 ### Mivo fork features
