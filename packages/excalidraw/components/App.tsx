@@ -758,6 +758,13 @@ class App extends React.Component<AppProps, AppState> {
   public flowchart: AppFlowchart = new AppFlowchart(this);
   public customElementOverlayRuntime = new CustomElementOverlayRuntime();
   private customElementPreviewRevisions = new Map<string, number>();
+  private externalCustomElementPreviewLoads = new Map<
+    FileId,
+    Readonly<{
+      controller: AbortController;
+      promise: Promise<boolean>;
+    }>
+  >();
 
   bindModeHandler: ReturnType<typeof setTimeout> | null = null;
   private textWysiwygSubmitHandler: ReturnType<typeof textWysiwyg> | null =
@@ -3706,6 +3713,12 @@ class App extends React.Component<AppProps, AppState> {
     this.fonts = new Fonts(this.scene);
     this.renderer = new Renderer(this.scene);
     this.files = {};
+    for (const {
+      controller,
+    } of this.externalCustomElementPreviewLoads.values()) {
+      controller.abort();
+    }
+    this.externalCustomElementPreviewLoads.clear();
     this.imageCache.clear();
     this.customElementPreviewRevisions.clear();
     this.customElementOverlayRuntime.destroy();
@@ -5424,6 +5437,86 @@ class App extends React.Component<AppProps, AppState> {
     this.scene.triggerUpdate();
   };
 
+  private loadExternalCustomElementPreview = (
+    element: Readonly<ExcalidrawCustomElement>,
+    fileId: FileId,
+  ): Promise<boolean> => {
+    if (this.imageCache.has(fileId)) {
+      return Promise.resolve(true);
+    }
+    const pending = this.externalCustomElementPreviewLoads.get(fileId);
+    if (pending) {
+      return pending.promise;
+    }
+    const resolver = this.props.customElementPreviewResolver;
+    if (!resolver) {
+      return Promise.resolve(false);
+    }
+
+    const controller = new AbortController();
+    const promise = (async () => {
+      let objectUrl: string | null = null;
+      try {
+        const resolved = await resolver.resolve(fileId, {
+          element,
+          signal: controller.signal,
+        });
+        if (!resolved || controller.signal.aborted || this.unmounted) {
+          return false;
+        }
+        if (
+          !Object.values(IMAGE_MIME_TYPES).includes(
+            resolved.mimeType as ValueOf<typeof IMAGE_MIME_TYPES>,
+          )
+        ) {
+          throw new Error(
+            `Custom element preview resolver returned unsupported MIME type "${resolved.mimeType}"`,
+          );
+        }
+        const source =
+          typeof resolved.source === "string"
+            ? resolved.source
+            : (objectUrl = URL.createObjectURL(resolved.source));
+        const imagePromise = new Promise<HTMLImageElement>(
+          (resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = source;
+          },
+        );
+        const cacheEntry = {
+          image: imagePromise,
+          mimeType: resolved.mimeType as ValueOf<typeof IMAGE_MIME_TYPES>,
+        };
+        this.imageCache.set(fileId, cacheEntry);
+        const image = await imagePromise;
+        if (controller.signal.aborted || this.unmounted) {
+          this.imageCache.delete(fileId);
+          return false;
+        }
+        this.imageCache.set(fileId, { ...cacheEntry, image });
+        return true;
+      } catch (error) {
+        this.imageCache.delete(fileId);
+        if (!controller.signal.aborted) {
+          console.error("Could not resolve custom element preview", error);
+        }
+        return false;
+      } finally {
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+        }
+        this.externalCustomElementPreviewLoads.delete(fileId);
+      }
+    })();
+    this.externalCustomElementPreviewLoads.set(fileId, {
+      controller,
+      promise,
+    });
+    return promise;
+  };
+
   private insertCustomElementsFromFilesInternal = async (
     options: Parameters<
       ExcalidrawImperativeAPI["insertCustomElementsFromFiles"]
@@ -5522,13 +5615,20 @@ class App extends React.Component<AppProps, AppState> {
         ...stagedPreviewFiles,
       };
       if (
-        previewIdsToDecode.some((fileId) => !filesWithStagedPreviews[fileId])
+        previewIdsToDecode.some(
+          (fileId) =>
+            !filesWithStagedPreviews[fileId] &&
+            !this.props.customElementPreviewResolver,
+        )
       ) {
         throw new Error("Custom element preview file was not found");
       }
+      const internalPreviewIds = previewIdsToDecode.filter(
+        (fileId) => filesWithStagedPreviews[fileId],
+      );
       const { erroredFiles } = await _updateImageCache({
         imageCache: this.imageCache,
-        fileIds: previewIdsToDecode,
+        fileIds: internalPreviewIds,
         files: filesWithStagedPreviews,
       });
       throwIfCustomElementOperationAborted(signal);
@@ -5706,15 +5806,27 @@ class App extends React.Component<AppProps, AppState> {
           };
         }
         if (previewFileId && !this.imageCache.has(previewFileId)) {
-          if (!this.files[previewFileId]) {
+          if (
+            !this.files[previewFileId] &&
+            !this.props.customElementPreviewResolver
+          ) {
             this.rollbackCustomElementPreviews(addedPreviewIds);
             throw new Error("Custom element preview file was not found");
           }
-          const { erroredFiles } = await _updateImageCache({
-            imageCache: this.imageCache,
-            fileIds: [previewFileId],
-            files: this.files,
-          });
+          const erroredFiles = this.files[previewFileId]
+            ? (
+                await _updateImageCache({
+                  imageCache: this.imageCache,
+                  fileIds: [previewFileId],
+                  files: this.files,
+                })
+              ).erroredFiles
+            : (await this.loadExternalCustomElementPreview(
+                element,
+                previewFileId,
+              ))
+            ? new Map<FileId, true>()
+            : new Map<FileId, true>([[previewFileId, true]]);
           throwIfCustomElementOperationAborted(signal);
           if (erroredFiles.size) {
             this.rollbackCustomElementPreviews(addedPreviewIds);
@@ -13530,16 +13642,51 @@ class App extends React.Component<AppProps, AppState> {
         ) {
           return [];
         }
+        if (
+          !isElementInViewport(
+            element,
+            this.state.width,
+            this.state.height,
+            {
+              zoom: this.state.zoom,
+              offsetLeft: this.state.offsetLeft,
+              offsetTop: this.state.offsetTop,
+              scrollX: this.state.scrollX,
+              scrollY: this.state.scrollY,
+            },
+            this.scene.getNonDeletedElementsMap(),
+          )
+        ) {
+          return [];
+        }
         return [{ element, fileId: element.previewFileId }];
       });
     if (uncachedPreviewElements.length) {
+      const internalPreviewElements = uncachedPreviewElements.filter(
+        ({ fileId }) => files[fileId],
+      );
+      const externalPreviewElements = uncachedPreviewElements.filter(
+        ({ fileId }) => !files[fileId],
+      );
       const { updatedFiles } = await _updateImageCache({
         imageCache: this.imageCache,
-        fileIds: uncachedPreviewElements.map(({ fileId }) => fileId),
+        fileIds: internalPreviewElements.map(({ fileId }) => fileId),
         files,
       });
-      if (updatedFiles.size) {
-        uncachedPreviewElements.forEach(({ element }) =>
+      const externallyUpdated = await Promise.all(
+        externalPreviewElements.map(async ({ element, fileId }) => ({
+          element,
+          loaded: await this.loadExternalCustomElementPreview(element, fileId),
+        })),
+      );
+      const updatedExternalElements = externallyUpdated
+        .filter(({ loaded }) => loaded)
+        .map(({ element }) => element);
+      if (updatedFiles.size || updatedExternalElements.length) {
+        internalPreviewElements.forEach(({ element }) =>
+          ShapeCache.delete(element),
+        );
+        updatedExternalElements.forEach((element) =>
           ShapeCache.delete(element),
         );
         this.scene.triggerUpdate();

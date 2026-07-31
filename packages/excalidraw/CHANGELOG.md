@@ -13,38 +13,36 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.14
+
+### Mivo fork performance
+
+- Added a host-provided Custom Element Preview Resolver. Preview FileIds absent from `BinaryFiles` can now resolve to persisted URL/Blob sources on demand, with viewport-aware interactive loading, per-FileId request deduplication, unmount cancellation, and the existing atomic Preview refresh behavior.
+
 ## 0.18.1-mivo.13
 
 ### Mivo fork performance
 
-- Added an opt-in whole-viewport snapshot path for the `cached` zoom render
-  strategy. Continuous zoom now transforms one static Canvas bitmap instead of
-  compositing every visible element on every frame, while scene, selection,
-  theme, grid, and viewport-size changes invalidate the snapshot.
+- Added an opt-in whole-viewport snapshot path for the `cached` zoom render strategy. Continuous zoom now transforms one static Canvas bitmap instead of compositing every visible element on every frame, while scene, selection, theme, grid, and viewport-size changes invalidate the snapshot.
 
 ## 0.18.1-mivo.12
 
 ### Mivo fork features
 
-- Added a Custom Element `foregroundPainter` command layer that bypasses the
-  offscreen element bitmap and replays directly on the main Canvas at the final
-  viewport scale, while remaining composed into Canvas and SVG exports.
+- Added a Custom Element `foregroundPainter` command layer that bypasses the offscreen element bitmap and replays directly on the main Canvas at the final viewport scale, while remaining composed into Canvas and SVG exports.
 
 ## 0.18.1-mivo.11
 
 ### Mivo fork fixes
 
-- Reused Custom Element offscreen canvases during pure `x`/`y` translation
-  instead of regenerating fixed- or source-scale caches on every pointer move.
-- Reused the selected-element ID set while updating bindings during multi-node
-  dragging, avoiding repeated quadratic collection allocation.
+- Reused Custom Element offscreen canvases during pure `x`/`y` translation instead of regenerating fixed- or source-scale caches on every pointer move.
+- Reused the selected-element ID set while updating bindings during multi-node dragging, avoiding repeated quadratic collection allocation.
 
 ## 0.18.1-mivo.5
 
 ### Mivo fork features
 
-- Added editor-instance-scoped Custom Element collection lifecycle callbacks
-  with semantic added, updated, and removed batches plus unmount cancellation.
+- Added editor-instance-scoped Custom Element collection lifecycle callbacks with semantic added, updated, and removed batches plus unmount cancellation.
 
 ## 0.18.1-mivo.4
 

@@ -106,6 +106,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     autoFocus = false,
     generateIdForFile,
     customElementAssets,
+    customElementPreviewResolver,
     customElementFileImport,
     onLinkOpen,
     generateLinkForSelection,
@@ -247,6 +248,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           autoFocus={autoFocus}
           generateIdForFile={generateIdForFile}
           customElementAssets={customElementAssets}
+          customElementPreviewResolver={customElementPreviewResolver}
           customElementFileImport={customElementFileImport}
           onLinkOpen={onLinkOpen}
           generateLinkForSelection={generateLinkForSelection}
@@ -437,6 +439,7 @@ export {
   unregisterCustomElement,
   getCustomElementDefinition,
   defineCustomElementAssetStore,
+  defineCustomElementPreviewResolver,
   customElementDefinitionAcceptsFile,
   measureCustomElementText,
   ellipsizeCustomElementText,
@@ -453,6 +456,8 @@ export type {
   CustomElementActivation,
   CustomElementTextStyle,
   CustomElementAssetStore,
+  CustomElementPreviewResolver,
+  CustomElementPreviewSource,
   CustomElementFileContext,
   CustomElementImportResult,
   CustomElementPreviewStore,

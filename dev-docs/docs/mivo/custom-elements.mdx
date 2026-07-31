@@ -52,35 +52,22 @@ const extension = defineCustomElementExtension({
 const unregister = registerCustomElementExtension(extension);
 ```
 
-`onElementsChange` runs per editor instance and per `customType`. Initial
-elements are reported as `added`; extension replacement or unregistration
-reports the previous set as `removed`. Use the provided `signal` to cancel
-host-owned asynchronous work when the editor unmounts. Long-lived work belongs
-here rather than in Canvas renderers or overlay mount callbacks. Geometry-only
-edits do not produce `updated` entries.
+`onElementsChange` runs per editor instance and per `customType`. Initial elements are reported as `added`; extension replacement or unregistration reports the previous set as `removed`. Use the provided `signal` to cancel host-owned asynchronous work when the editor unmounts. Long-lived work belongs here rather than in Canvas renderers or overlay mount callbacks. Geometry-only edits do not produce `updated` entries.
 
 React applications may call `useRegisterCustomElement(extension)` instead.
 
 ## Cached and foreground Canvas layers
 
-Renderer commands written to `painter` are rasterized into the Custom
-Element's offscreen cache according to its `cache` strategy. Commands written
-to `foregroundPainter` are stored with that cache and replayed directly on the
-main Canvas after the cached bitmap:
+Renderer commands written to `painter` are rasterized into the Custom Element's offscreen cache according to its `cache` strategy. Commands written to `foregroundPainter` are stored with that cache and replayed directly on the main Canvas after the cached bitmap:
 
 ```ts
 render: ({ painter, foregroundPainter, viewBox }) => {
   painter.image(previewFileId, 0, 0, viewBox.width, viewBox.height);
   foregroundPainter.text("Sharp at the current zoom", 16, 24);
-}
+};
 ```
 
-Use the foreground layer for a small number of text or vector commands whose
-sharpness must follow the final viewport scale. Keep images, complex paths,
-glows, and other expensive drawing in the cached layer. The two painters have
-independent save/restore and clipping stacks, so foreground clipping must be
-declared on `foregroundPainter` itself. Canvas and SVG exports compose the
-cached layer first and the foreground layer second.
+Use the foreground layer for a small number of text or vector commands whose sharpness must follow the final viewport scale. Keep images, complex paths, glows, and other expensive drawing in the cached layer. The two painters have independent save/restore and clipping stacks, so foreground clipping must be declared on `foregroundPainter` itself. Canvas and SVG exports compose the cached layer first and the foreground layer second.
 
 ## Selection and resize policy
 
@@ -118,6 +105,29 @@ Original resources are not stored in scene JSON or `BinaryFiles`. The host provi
 ```tsx
 <Excalidraw customElementAssets={assetStore} />
 ```
+
+Hosts that persist Preview images outside `BinaryFiles` can additionally provide a resolver:
+
+```tsx
+const previewResolver = defineCustomElementPreviewResolver({
+  async resolve(fileId, { element, signal }) {
+    const metadata = readPreviewMetadata(element);
+    if (!metadata || signal.aborted) {
+      return null;
+    }
+    return {
+      source: resolvePersistedPreviewUrl(metadata.path),
+      mimeType: metadata.mimeType,
+    };
+  },
+});
+
+<Excalidraw customElementPreviewResolver={previewResolver} />;
+```
+
+An external `previewFileId` does not need a matching `BinaryFiles` entry. The interactive editor resolves external previews only after their Custom Elements enter the viewport, deduplicates concurrent requests for the same FileId, and cancels pending resolution when the editor unmounts. Returning a Blob/File is also supported; its temporary Object URL is revoked after decode.
+
+The resolver is a runtime loading boundary, not a persistence format. The host must serialize enough metadata in its Custom Element data or another stable host-owned scene structure to resolve the FileId after reopening the scene.
 
 File import stores the original with `assets.put()` and returns the resulting resource reference. `createPreview()` may return a File/Blob directly; the core stores and decodes it.
 

@@ -50,6 +50,7 @@ import type {
   CaptureUpdateActionType,
   CustomElementActivation,
   CustomElementAssetStore,
+  CustomElementPreviewResolver,
   CustomElementData,
   TypedExcalidrawCustomElement,
   DurableIncrement,
@@ -1018,9 +1019,14 @@ export interface ExcalidrawProps {
   generateIdForFile?: (file: File) => string | Promise<string>;
   /**
    * Host-owned persistence and resolution for original custom-element files.
-   * Preview images remain managed by Excalidraw BinaryFiles.
    */
   customElementAssets?: CustomElementAssetStore;
+  /**
+   * Optional host resolver for externally persisted custom-element previews.
+   * BinaryFiles remain the fallback for previews created and owned by
+   * Excalidraw.
+   */
+  customElementPreviewResolver?: CustomElementPreviewResolver;
   customElementFileImport?: CustomElementFileImportConfig;
   generateLinkForSelection?: (id: string, type: "element" | "group") => string;
   onLinkOpen?: (

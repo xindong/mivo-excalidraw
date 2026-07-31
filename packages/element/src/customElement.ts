@@ -82,6 +82,25 @@ export type CustomElementAssetStore = Readonly<{
 export const defineCustomElementAssetStore = (store: CustomElementAssetStore) =>
   store;
 
+export type CustomElementPreviewSource = Readonly<{
+  source: Blob | File | string;
+  mimeType: string;
+}>;
+
+export type CustomElementPreviewResolver = Readonly<{
+  resolve: (
+    fileId: FileId,
+    context: {
+      element: Readonly<ExcalidrawCustomElement>;
+      signal: AbortSignal;
+    },
+  ) => Promise<CustomElementPreviewSource | null>;
+}>;
+
+export const defineCustomElementPreviewResolver = (
+  resolver: CustomElementPreviewResolver,
+) => resolver;
+
 export type CustomElementPreviewStore = Readonly<{
   put: (preview: File | Blob, options?: { name?: string }) => Promise<FileId>;
 }>;

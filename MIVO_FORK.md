@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.12`
+- Current prerelease: `0.18.1-mivo.14`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -47,21 +47,18 @@ registerCustomElementExtension(extension);
 // React hosts may use useRegisterCustomElement(extension).
 ```
 
-`onElementsChange` is editor-instance-scoped and reports the current non-deleted
-set for one `customType` together with batched added, updated, and removed
-elements. Its `AbortSignal` is cancelled when the editor unmounts, allowing host
-extensions to coordinate background work without coupling it to renderer or
-overlay mount state.
+`onElementsChange` is editor-instance-scoped and reports the current non-deleted set for one `customType` together with batched added, updated, and removed elements. Its `AbortSignal` is cancelled when the editor unmounts, allowing host extensions to coordinate background work without coupling it to renderer or overlay mount state.
 
 The lower-level `registerCustomElement()` and `registerCustomElementOverlays()` remain available for advanced dynamic registration.
 
 ### Resource and Preview lifecycle
 
-The host owns original files through `CustomElementAssetStore`:
+The host owns original files through `CustomElementAssetStore`. Preview images may either remain in Excalidraw `BinaryFiles` or be persisted by the host and resolved on demand:
 
 ```text
 original File/Blob -> AssetStore.put() -> element.resource
 preview File/Blob  -> Excalidraw BinaryFiles -> element.previewFileId
+external preview   -> host storage -> PreviewResolver -> ImageCache
 ```
 
 The core never assumes a filesystem, URL scheme, database, or media type. `AssetStore.resolve()` may return a Blob, File, URL string, or null.
@@ -73,6 +70,8 @@ Preview results have fixed semantics:
 - `null`: keep the current preview unchanged.
 
 `refreshCustomElementPreview()` is latest-wins per element. A new image is stored and decoded into `ImageCache` before `previewFileId` changes, preventing an image-to-empty-to-image flash.
+
+`CustomElementPreviewResolver` is only called for Preview FileIds missing from `BinaryFiles`. Interactive Canvas loading is viewport-aware, and in-flight resolution is deduplicated per FileId and cancelled when the editor unmounts.
 
 ### Overlay Layer
 
@@ -160,19 +159,13 @@ The in-memory store is intentionally non-persistent. Production hosts must provi
 ## Performance model
 
 - Custom Canvas renderers use cached offscreen canvases.
-- Renderer commands written to `foregroundPainter` bypass the offscreen bitmap
-  and are replayed after the cached layer, keeping small text sharp without
-  regenerating the full element canvas during zoom.
-- Translating a Custom Element by changing only `x`/`y` reuses its offscreen
-  canvas; visual data, preview, and geometry changes still invalidate it.
-- The `cached` zoom render strategy snapshots the complete static viewport
-  during continuous zoom and transforms that one bitmap per frame. Scene,
-  selection, theme, grid, and viewport-size changes invalidate the snapshot;
-  the interactive Canvas remains live, and the static scene is fully redrawn
-  when zoom settles.
+- Renderer commands written to `foregroundPainter` bypass the offscreen bitmap and are replayed after the cached layer, keeping small text sharp without regenerating the full element canvas during zoom.
+- Translating a Custom Element by changing only `x`/`y` reuses its offscreen canvas; visual data, preview, and geometry changes still invalidate it.
+- The `cached` zoom render strategy snapshots the complete static viewport during continuous zoom and transforms that one bitmap per frame. Scene, selection, theme, grid, and viewport-size changes invalidate the snapshot; the interactive Canvas remains live, and the static scene is fully redrawn when zoom settles.
 - Source cache mode keeps a stable high-quality cache across zoom changes.
 - Overlay entrance updates are coalesced into one animation-frame state commit.
 - Batch Preview files are staged and committed once per import batch.
+- Host-persisted Custom Element Preview images are resolved only when their elements enter the viewport instead of being eagerly converted to DataURLs.
 - Chrome may still report an occasional long animation frame while decoding or drawing many large assets. Repeated warnings during steady-state interaction should be profiled before changing cache policy.
 
 ## Release and upstream policy
