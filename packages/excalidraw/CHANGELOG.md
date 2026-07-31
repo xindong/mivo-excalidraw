@@ -13,6 +13,13 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.15
+
+### Mivo fork features
+
+- On Windows, plain mouse wheel now zooms the canvas (Figma-style desktop convention) while shift+wheel keeps horizontal panning; Ctrl/Cmd+wheel and trackpad pinch continue to zoom on every platform.
+- On Windows, the secondary (right) mouse button now drags to pan the canvas, alongside middle-button and space+drag panning; right-click no longer opens the context menu while panning.
+
 ## 0.18.1-mivo.14
 
 ### Mivo fork performance

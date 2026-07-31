@@ -70,6 +70,7 @@ import {
   getNearestScrollableContainer,
   isInputLike,
   isToolIcon,
+  isWindows,
   isWritableElement,
   sceneCoordsToViewportCoords,
   tupleToCoors,
@@ -9818,6 +9819,7 @@ class App extends React.Component<AppProps, AppState> {
       !(
         gesture.pointers.size <= 1 &&
         (event.button === POINTER_BUTTON.WHEEL ||
+          (isWindows && event.button === POINTER_BUTTON.SECONDARY) ||
           (event.button === POINTER_BUTTON.MAIN && isHoldingSpace) ||
           isHandToolActive(this.state) ||
           (this.state.viewModeEnabled &&
@@ -14032,6 +14034,11 @@ class App extends React.Component<AppProps, AppState> {
     }
     event.preventDefault();
 
+    // While right-drag panning (Windows), don't open the context menu.
+    if (isWindows && isPanning) {
+      return;
+    }
+
     if (
       (("pointerType" in event.nativeEvent &&
         event.nativeEvent.pointerType === "touch") ||
@@ -14591,7 +14598,13 @@ class App extends React.Component<AppProps, AppState> {
 
       const { deltaX, deltaY } = event;
       // note that event.ctrlKey is necessary to handle pinch zooming
-      if (event.metaKey || event.ctrlKey) {
+      // on Windows, plain wheel zoom is the native desktop convention, so
+      // zoom unless shift is held (shift+wheel keeps horizontal panning)
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        (isWindows && !event.shiftKey)
+      ) {
         // while rubberband-overscrolled past the scroll constraints, suppress
         // zooming until the viewport has snapped back inside the box
         if (isViewportOverscrolled(this.state)) {
