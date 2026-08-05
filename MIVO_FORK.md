@@ -117,7 +117,7 @@ The hook resolves host resources, handles abort/races, creates Object URLs for B
 The Canvas Core SDK is exported from `@miragari/mivo-excalidraw/canvas`. It provides a stable inspect/apply protocol for applications, agents, and MCP tools:
 
 - scene inspection and pagination
-- typed create/patch/transform/layout/connect/delete operations
+- typed create/patch/transform/layout/connect/disconnect/delete operations
 - normalized connector anchors, serialized linear stroke gradients, and straight/auto-controlled cubic Bézier bound-arrow routing; Canvas and SVG share gradient data, while managed auto curves remain non-interactive node attachments and cascade-delete with either endpoint
 - revision tracking
 - structured errors
@@ -150,6 +150,9 @@ Managed connections are first-class linear elements. Their behavior is declared 
 ```
 
 `routing` owns geometry, `interaction` owns direct manipulation policy, and `deletePolicy` owns endpoint lifecycle. Fixed port positions belong only to bindings. The fork intentionally does not restore the former Mivo `customData.mivoAutoCubicConnector` marker; old development-fixture connections must be recreated.
+
+Hosts remove a managed relationship with the endpoint-level `disconnect`
+operation. Direct mutation or deletion of the connector element remains blocked.
 
 ### Host capabilities and rendering controls
 

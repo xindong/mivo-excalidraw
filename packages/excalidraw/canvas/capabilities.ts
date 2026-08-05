@@ -9,6 +9,7 @@ const STANDARD_OPERATIONS = [
   "group",
   "ungroup",
   "connect",
+  "disconnect",
   "layout",
   "arrange",
   "viewport",

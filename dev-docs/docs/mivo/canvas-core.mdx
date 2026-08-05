@@ -39,6 +39,7 @@ The built-in operations cover:
 - duplicate/delete
 - group/ungroup
 - connect
+- disconnect
 - align/distribute/stack/grid
 - arrange
 - viewport selection/focus
@@ -86,6 +87,14 @@ await controller.apply({
       },
     },
   ],
+});
+```
+
+Managed connectors are removed through the relationship-level `disconnect` operation instead of direct line deletion. This keeps the connector non-interactive while allowing product UI such as a reference chip's remove button to explicitly sever one endpoint relationship.
+
+```ts
+await controller.apply({
+  operations: [{ type: "disconnect", from: sourceId, to: workflowId }],
 });
 ```
 

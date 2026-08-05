@@ -13,8 +13,77 @@ describe("Canvas Core public contracts", () => {
     expect(capabilities.protocolVersion).toBe(CANVAS_CORE_PROTOCOL_VERSION);
     expect(capabilities.commands).toEqual(["inspect", "apply"]);
     expect(capabilities.operations).toContain("extension");
+    expect(capabilities.operations).toContain("disconnect");
     expect(capabilities.createKinds).toContain("custom");
     expect(capabilities.extensions).toEqual(["mivo.assets"]);
+  });
+
+  it("disconnects a managed connector through its endpoints", () => {
+    const snapshot = {
+      elements: [],
+      appState: { editingGroupId: null, selectedGroupIds: {} },
+    } as const;
+    const created = applyCanvasSceneOperations(snapshot, [
+      {
+        type: "create",
+        items: [
+          {
+            kind: "custom",
+            id: "source",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            customType: "mivo.image",
+            rendererId: "image.v1",
+            schemaVersion: 1,
+            rendererVersion: 1,
+          },
+          {
+            kind: "custom",
+            id: "target",
+            x: 300,
+            y: 0,
+            width: 100,
+            height: 100,
+            customType: "mivo.placeholder",
+            rendererId: "placeholder.v1",
+            schemaVersion: 1,
+            rendererVersion: 1,
+          },
+        ],
+      },
+      {
+        type: "connect",
+        from: "source",
+        to: "target",
+        fromAnchor: { x: 1, y: 0.5 },
+        toAnchor: { x: 0, y: 0.5 },
+        routing: "auto-cubic",
+      },
+    ]);
+
+    const disconnected = applyCanvasSceneOperations(
+      { ...snapshot, elements: created.elements },
+      [{ type: "disconnect", from: "source", to: "target" }],
+    );
+    const connector = created.elements.find(
+      (element) => element.type === "arrow",
+    );
+
+    expect(connector).toBeDefined();
+    expect(
+      disconnected.elements.find((element) => element.id === connector?.id)
+        ?.isDeleted,
+    ).toBe(true);
+    expect(
+      disconnected.elements.find((element) => element.id === "source")
+        ?.boundElements,
+    ).toEqual([]);
+    expect(
+      disconnected.elements.find((element) => element.id === "target")
+        ?.boundElements,
+    ).toEqual([]);
   });
 
   it("preserves typed extension definitions without wrapping execution", () => {
@@ -123,7 +192,10 @@ describe("Canvas Core public contracts", () => {
       operations: [{ type: "viewport", center: { x: 120, y: 80 } }],
     });
 
-    expect(result).toMatchObject({ sceneChanged: false, viewportChanged: true });
+    expect(result).toMatchObject({
+      sceneChanged: false,
+      viewportChanged: true,
+    });
     expect(setViewport).toHaveBeenCalledWith({
       target: { x: 120, y: 80, width: 0, height: 0 },
       fit: "none",

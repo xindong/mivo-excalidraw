@@ -17,7 +17,7 @@ Please add the latest change on the top under the correct section.
 
 ### Mivo fork features
 
-- Added a serialized Connector protocol for managed auto-cubic linear elements, including fixed-port bindings, centralized interaction/lifecycle policies, and shared Bézier geometry across rendering, export, bounds, collision, and drag preview. Added serialized `strokeGradient` support for line and arrow elements across Canvas rendering, SVG export, restore, and Canvas Core create/patch/inspect operations. The former Mivo `customData` connector marker is intentionally not migrated.
+- Added a serialized Connector protocol for managed auto-cubic linear elements, including fixed-port bindings, centralized interaction/lifecycle policies, endpoint-level Canvas Core disconnect, and shared Bézier geometry across rendering, export, bounds, collision, and drag preview. Added serialized `strokeGradient` support for line and arrow elements across Canvas rendering, SVG export, restore, and Canvas Core create/patch/inspect operations. The former Mivo `customData` connector marker is intentionally not migrated.
 
 ## 0.18.1-mivo.15
 

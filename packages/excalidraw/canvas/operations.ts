@@ -14,6 +14,7 @@ import {
   syncInvalidIndicesImmutable,
   updateBoundElements,
   isElementDirectlyMutable,
+  isManagedConnector,
   shouldCascadeDeleteWithEndpoint,
   normalizeLinearStrokeGradient,
   type ExcalidrawElementSkeleton,
@@ -236,8 +237,8 @@ const applySceneOperation = (
         ids.has(element.id)
           ? newElementWith(element, { isDeleted: true })
           : element.frameId && ids.has(element.frameId)
-          ? newElementWith(element, { frameId: null })
-          : element,
+            ? newElementWith(element, { frameId: null })
+            : element,
       );
     fixBindingsAfterDeletion(
       next,
@@ -321,6 +322,15 @@ const applySceneOperation = (
       elements: connected.elements,
       created: connected.createdIds,
       touched: [operation.from, operation.to, ...connected.createdIds],
+    };
+  }
+
+  if (operation.type === "disconnect") {
+    const disconnected = disconnectElements(elements, operation);
+    return {
+      elements: disconnected.elements,
+      created: [],
+      touched: [operation.from, operation.to, ...disconnected.connectorIds],
     };
   }
 
@@ -753,7 +763,7 @@ const connectElements = (
           deletePolicy: "cascade",
         }
       : null,
-    endArrowhead: isAutoCubic ? null : operation.endArrowhead ?? "arrow",
+    endArrowhead: isAutoCubic ? null : (operation.endArrowhead ?? "arrow"),
     strokeColor: operation.strokeColor,
     strokeWidth: operation.strokeWidth,
     strokeGradient:
@@ -806,6 +816,45 @@ const connectElements = (
   return {
     elements: [...next, ...connectedElements],
     createdIds: connectedElements.map((element) => element.id),
+  };
+};
+
+const disconnectElements = (
+  elements: readonly OrderedExcalidrawElement[],
+  operation: Extract<CanvasOperation, { type: "disconnect" }>,
+) => {
+  ensureElements(elements, [operation.from, operation.to]);
+  const connectors = elements.filter(
+    (element) =>
+      !element.isDeleted &&
+      isManagedConnector(element) &&
+      element.startBinding?.elementId === operation.from &&
+      element.endBinding?.elementId === operation.to,
+  );
+  if (!connectors.length) {
+    throw invalidCanvasOperation(
+      `Managed connector not found: ${operation.from} -> ${operation.to}`,
+    );
+  }
+
+  const connectorIds = new Set(connectors.map((element) => element.id));
+  const affectedIds = new Set([operation.from, operation.to, ...connectorIds]);
+  const next = elements
+    .map((element) =>
+      affectedIds.has(element.id)
+        ? (deepCopyElement(element) as OrderedExcalidrawElement)
+        : element,
+    )
+    .map((element) =>
+      connectorIds.has(element.id)
+        ? newElementWith(element, { isDeleted: true })
+        : element,
+    );
+  fixBindingsAfterDeletion(next, connectors);
+
+  return {
+    elements: next,
+    connectorIds: [...connectorIds],
   };
 };
 

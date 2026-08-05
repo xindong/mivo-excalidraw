@@ -225,6 +225,11 @@ export type CanvasOperation =
       strokeWidth?: number;
       strokeGradient?: LinearStrokeGradient | null;
     }>
+  | Readonly<{
+      type: "disconnect";
+      from: string;
+      to: string;
+    }>
   | CanvasLayoutOperation
   | Readonly<{
       type: "arrange";
