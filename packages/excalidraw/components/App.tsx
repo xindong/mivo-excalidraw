@@ -8984,7 +8984,7 @@ class App extends React.Component<AppProps, AppState> {
         const hoveredElementIds = updateStable(
           prevState.hoveredElementIds,
           hitElement && isCustomElement(hitElement)
-            ? { [hitElement.id]: true }
+            ? { [hitElement.id]: true as const }
             : {},
         );
         return hoveredElementIds === prevState.hoveredElementIds
