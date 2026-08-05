@@ -40,6 +40,7 @@ import {
 } from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
+import { getElementsInManagedConnectorRenderOrder } from "@excalidraw/element";
 
 import type {
   ExcalidrawElement,
@@ -815,7 +816,7 @@ export const renderSceneToSvg = (
   }
 
   // render elements
-  elements
+  getElementsInManagedConnectorRenderOrder(elements)
     .filter((el) => !isIframeLikeElement(el))
     .forEach((element) => {
       if (!element.isDeleted) {

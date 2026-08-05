@@ -60,6 +60,29 @@ export const shouldCascadeDeleteWithEndpoint = (
   (element.type === "line" || element.type === "arrow") &&
   element.connector?.deletePolicy === "cascade";
 
+/**
+ * Managed connectors are relationship chrome rather than user-arranged scene
+ * content. Paint them before every regular element so endpoint cards and any
+ * overlapping scene content always remain visually above the connection.
+ * Scene order itself stays untouched for serialization and collaboration.
+ */
+export const getElementsInManagedConnectorRenderOrder = <
+  TElement extends ExcalidrawElement,
+>(
+  elements: readonly TElement[],
+): readonly TElement[] => {
+  if (!elements.some(isManagedConnector)) {
+    return elements;
+  }
+
+  const connectors: TElement[] = [];
+  const regularElements: TElement[] = [];
+  for (const element of elements) {
+    (isManagedConnector(element) ? connectors : regularElements).push(element);
+  }
+  return [...connectors, ...regularElements];
+};
+
 export const getAutoCubicGeometry = (
   start: AutoCubicPoint,
   end: AutoCubicPoint,

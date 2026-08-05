@@ -151,6 +151,8 @@ Managed connections are first-class linear elements. Their behavior is declared 
 
 `routing` owns geometry, `interaction` owns direct manipulation policy, and `deletePolicy` owns endpoint lifecycle. Fixed port positions belong only to bindings. The fork intentionally does not restore the former Mivo `customData.mivoAutoCubicConnector` marker; old development-fixture connections must be recreated.
 
+Managed connectors are always painted in a background relationship layer before regular scene elements. This render-only ordering applies equally to interactive Canvas and SVG export and does not rewrite serialized scene order, so nodes remain visually above their connections regardless of arrange operations or restore order.
+
 Hosts remove a managed relationship with the endpoint-level `disconnect`
 operation. Direct mutation or deletion of the connector element remains blocked.
 

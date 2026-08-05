@@ -22,6 +22,7 @@ import {
 import { renderElement } from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
+import { getElementsInManagedConnectorRenderOrder } from "@excalidraw/element";
 
 import type {
   ElementsMap,
@@ -452,7 +453,7 @@ const _renderStaticScene = (config: StaticSceneRenderConfig) => {
   const inFrameGroupsMap = new Map<string, boolean>();
 
   // Paint visible elements
-  visibleElements
+  getElementsInManagedConnectorRenderOrder(visibleElements)
     .filter((el) => !isIframeLikeElement(el))
     .forEach((element) => {
       try {
