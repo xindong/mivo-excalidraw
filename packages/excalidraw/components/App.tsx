@@ -267,6 +267,7 @@ import {
   getCustomElementFileImportDefinitions,
   getCustomElementRenderer,
   customElementDefinitionAcceptsFile,
+  isElementHitTestable,
   type CustomElementPreviewOutput,
 } from "@excalidraw/element";
 
@@ -2297,6 +2298,12 @@ class App extends React.Component<AppProps, AppState> {
     // panning to trigger history back/forward on MacOS Chrome
     document.documentElement.style.overscrollBehaviorX =
       event.type === "pointerenter" ? "none" : "auto";
+    if (
+      event.type === "pointerleave" &&
+      Object.keys(this.state.hoveredElementIds).length
+    ) {
+      this.setState({ hoveredElementIds: {} });
+    }
   }
 
   public render() {
@@ -7433,6 +7440,7 @@ class App extends React.Component<AppProps, AppState> {
                   !(isTextElement(element) && element.containerId)),
             )
     )
+      .filter(isElementHitTestable)
       .filter((el) => this.hitElement(x, y, el))
       .filter((element) => {
         // hitting a frame's element from outside the frame is not considered a hit
@@ -8969,6 +8977,20 @@ class App extends React.Component<AppProps, AppState> {
       hitElement = null;
     } else {
       hitElement = hitElementMightBeLocked;
+    }
+
+    if (this.state.openDialog?.name !== "elementLinkSelector") {
+      this.setState((prevState) => {
+        const hoveredElementIds = updateStable(
+          prevState.hoveredElementIds,
+          hitElement && isCustomElement(hitElement)
+            ? { [hitElement.id]: true }
+            : {},
+        );
+        return hoveredElementIds === prevState.hoveredElementIds
+          ? null
+          : { hoveredElementIds };
+      });
     }
 
     if (

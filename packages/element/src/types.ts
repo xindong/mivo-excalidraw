@@ -322,7 +322,7 @@ export type ExcalidrawTextElementWithContainer = {
 
 export type FixedPoint = [number, number];
 
-export type BindMode = "inside" | "orbit" | "skip";
+export type BindMode = "inside" | "orbit" | "skip" | "fixed";
 
 export type FixedPointBinding = {
   elementId: ExcalidrawBindableElement["id"];
@@ -373,6 +373,20 @@ export type Arrowhead =
 
 export type AnyArrowhead = Arrowhead | ArrowheadLegacy;
 
+export type LinearStrokeGradient = Readonly<{
+  type: "linear";
+  startColor?: string;
+  endColor?: string;
+  startOpacity: number;
+  endOpacity: number;
+}>;
+
+export type ConnectorConfig = Readonly<{
+  routing: "auto-cubic";
+  interaction: "managed";
+  deletePolicy: "cascade";
+}>;
+
 export type ExcalidrawLinearElement = _ExcalidrawElementBase &
   Readonly<{
     type: "line" | "arrow";
@@ -381,6 +395,8 @@ export type ExcalidrawLinearElement = _ExcalidrawElementBase &
     endBinding: FixedPointBinding | null;
     startArrowhead: Arrowhead | null;
     endArrowhead: Arrowhead | null;
+    connector: ConnectorConfig | null;
+    strokeGradient?: LinearStrokeGradient | null;
   }>;
 
 export type ExcalidrawLineElement = ExcalidrawLinearElement &

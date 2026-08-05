@@ -466,9 +466,11 @@ export type {
   TypedExcalidrawCustomElement,
 } from "@excalidraw/element";
 export type {
+  ConnectorConfig,
   ExcalidrawCustomElement,
   CustomElementValue,
   CustomElementResource,
+  LinearStrokeGradient,
 } from "@excalidraw/element/types";
 
 export {

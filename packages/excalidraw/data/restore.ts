@@ -80,6 +80,10 @@ import type {
   StrokeVariability,
   StrokeRoundness,
 } from "@excalidraw/element/types";
+import {
+  normalizeConnectorConfig,
+  normalizeLinearStrokeGradient,
+} from "@excalidraw/element";
 
 import type { MarkOptional, Mutable } from "@excalidraw/common/utility-types";
 
@@ -105,6 +109,10 @@ type RestoredAppState = Omit<
 >;
 
 const MAX_LINEAR_PX = 75_000;
+
+const restoreLinearElementStrokeGradient = (element: {
+  strokeGradient?: unknown;
+}) => normalizeLinearStrokeGradient(element.strokeGradient);
 
 // Last resort fix for extremely large linear elements (lines / arrows), which
 // would otherwise freeze the editor while rendering — e.g. a dotted or dashed
@@ -653,6 +661,8 @@ export const restoreElement = (
         endBinding: null,
         startArrowhead,
         endArrowhead,
+        connector: normalizeConnectorConfig(element.connector),
+        strokeGradient: restoreLinearElementStrokeGradient(element),
         points,
         x,
         y,
@@ -705,6 +715,8 @@ export const restoreElement = (
         ),
         startArrowhead,
         endArrowhead,
+        connector: normalizeConnectorConfig(element.connector),
+        strokeGradient: restoreLinearElementStrokeGradient(element),
         points,
         x: x ?? 0,
         y: y ?? 0,

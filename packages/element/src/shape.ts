@@ -56,6 +56,7 @@ import {
 } from "./typeChecks";
 import { getCornerRadius, isPathALoop } from "./utils";
 import { headingForPointIsHorizontal } from "./heading";
+import { getAutoCubicConnectorPath } from "./autoCubicConnector";
 
 import { canChangeRoundness } from "./comparisons";
 import {
@@ -600,11 +601,12 @@ export const generateLinearCollisionShape = (
       const points = element.points.length
         ? element.points
         : [pointFrom<LocalPoint>(0, 0)];
+      const autoCubicPath = getAutoCubicConnectorPath(element, points);
 
       if (isElbowArrow(element)) {
         return generator.path(generateElbowArrowShape(points, 16), options)
           .sets[0].ops;
-      } else if (!element.roundness) {
+      } else if (!autoCubicPath && !element.roundness) {
         return points.map((point, idx) => {
           const p = pointRotateRads(
             pointFrom<GlobalPoint>(element.x + point[0], element.y + point[1]),
@@ -619,9 +621,12 @@ export const generateLinearCollisionShape = (
         });
       }
 
-      return generator
-        .curve(points as unknown as RoughPoint[], options)
-        .sets[0].ops.slice(0, element.points.length)
+      return (
+        autoCubicPath
+          ? generator.path(autoCubicPath, options)
+          : generator.curve(points as unknown as RoughPoint[], options)
+      ).sets[0].ops
+        .slice(0, element.points.length)
         .map((op, i) => {
           if (i === 0) {
             const p = pointRotateRads<GlobalPoint>(
@@ -879,6 +884,7 @@ const _generateElementShape = (
       const points = element.points.length
         ? element.points
         : [pointFrom<LocalPoint>(0, 0)];
+      const autoCubicPath = getAutoCubicConnectorPath(element, points);
 
       if (isElbowArrow(element)) {
         // NOTE (mtolmacs): Temporary fix for extremely big arrow shapes
@@ -901,6 +907,13 @@ const _generateElementShape = (
             ),
           ];
         }
+      } else if (autoCubicPath) {
+        shape = [
+          generator.path(autoCubicPath, {
+            ...options,
+            disableMultiStroke: true,
+          }),
+        ];
       } else if (!element.roundness) {
         // curve is always the first element
         // this simplifies finding the curve for an element
@@ -918,7 +931,7 @@ const _generateElementShape = (
       }
 
       // add lines only in arrow
-      if (element.type === "arrow") {
+      if (element.type === "arrow" && !autoCubicPath) {
         const { startArrowhead = null, endArrowhead = "arrow" } = element;
 
         if (startArrowhead !== null) {

@@ -33,6 +33,7 @@ import { getContainingFrame } from "@excalidraw/element";
 import { getCornerRadius, isPathALoop } from "@excalidraw/element";
 
 import { ShapeCache } from "@excalidraw/element";
+import { getLinearStrokeGradient } from "@excalidraw/element";
 import {
   createCustomElementDrawCommands,
   drawCustomElementCommandsToSvg,
@@ -342,13 +343,71 @@ const renderElementToSvg = (
       }
       group.setAttribute("stroke-linecap", "round");
 
+      const strokeGradient = getLinearStrokeGradient(element);
+      const strokeGradientId = strokeGradient
+        ? `linear-stroke-gradient-${element.id}`
+        : null;
+      if (strokeGradient && strokeGradientId) {
+        const defs = svgRoot.ownerDocument.createElementNS(SVG_NS, "defs");
+        const linearGradient = svgRoot.ownerDocument.createElementNS(
+          SVG_NS,
+          "linearGradient",
+        );
+        linearGradient.setAttribute("id", strokeGradientId);
+        linearGradient.setAttribute("gradientUnits", "userSpaceOnUse");
+        linearGradient.setAttribute("x1", `${strokeGradient.start[0]}`);
+        linearGradient.setAttribute("y1", `${strokeGradient.start[1]}`);
+        linearGradient.setAttribute("x2", `${strokeGradient.end[0]}`);
+        linearGradient.setAttribute("y2", `${strokeGradient.end[1]}`);
+        const startStop = svgRoot.ownerDocument.createElementNS(SVG_NS, "stop");
+        startStop.setAttribute("offset", "0");
+        startStop.setAttribute(
+          "stop-color",
+          applyDarkModeFilter(
+            strokeGradient.startColor,
+            renderConfig.theme === THEME.DARK,
+          ),
+        );
+        startStop.setAttribute(
+          "stop-opacity",
+          `${strokeGradient.startOpacity}`,
+        );
+        const endStop = svgRoot.ownerDocument.createElementNS(SVG_NS, "stop");
+        endStop.setAttribute("offset", "1");
+        endStop.setAttribute(
+          "stop-color",
+          applyDarkModeFilter(
+            strokeGradient.endColor,
+            renderConfig.theme === THEME.DARK,
+          ),
+        );
+        endStop.setAttribute("stop-opacity", `${strokeGradient.endOpacity}`);
+        linearGradient.append(startStop, endStop);
+        defs.appendChild(linearGradient);
+        group.appendChild(defs);
+      }
+
       const shapes = ShapeCache.generateElementShape(element, renderConfig);
-      shapes.forEach((shape) => {
+      shapes.forEach((shape, index) => {
         const node = roughSVGDrawWithPrecision(
           rsvg,
           shape,
           MAX_DECIMALS_FOR_SVG_EXPORT,
         );
+        if (index === 0 && strokeGradientId) {
+          const gradientStroke = `url(#${strokeGradientId})`;
+          if (
+            node.hasAttribute("stroke") &&
+            node.getAttribute("stroke") !== "none"
+          ) {
+            node.setAttribute("stroke", gradientStroke);
+          }
+          node.querySelectorAll("[stroke]").forEach((strokeNode) => {
+            if (strokeNode.getAttribute("stroke") !== "none") {
+              strokeNode.setAttribute("stroke", gradientStroke);
+            }
+          });
+        }
         if (opacity !== 1) {
           node.setAttribute("stroke-opacity", `${opacity}`);
           node.setAttribute("fill-opacity", `${opacity}`);

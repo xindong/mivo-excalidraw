@@ -29,6 +29,7 @@ import type { Mutable } from "@excalidraw/common/utility-types";
 
 import { generateRoughOptions } from "./shape";
 import { ShapeCache } from "./shape";
+import { getAutoCubicConnectorPath } from "./autoCubicConnector";
 import { LinearElementEditor } from "./linearElementEditor";
 import { getBoundTextElement, getContainerElement } from "./textElement";
 import {
@@ -914,6 +915,11 @@ const generateLinearElementShape = (
 ): Drawable => {
   const generator = rough.generator();
   const options = generateRoughOptions(element);
+  const autoCubicPath = getAutoCubicConnectorPath(element);
+
+  if (autoCubicPath) {
+    return generator.path(autoCubicPath, options);
+  }
 
   const method = (() => {
     if (element.roundness) {
@@ -1071,7 +1077,10 @@ export const getResizedElementAbsoluteCoords = (
   } else {
     // Line
     const gen = rough.generator();
-    const curve = !element.roundness
+    const autoCubicPath = getAutoCubicConnectorPath(element, points);
+    const curve = autoCubicPath
+      ? gen.path(autoCubicPath, generateRoughOptions(element))
+      : !element.roundness
       ? gen.linearPath(
           points as [number, number][],
           generateRoughOptions(element),
@@ -1097,13 +1106,18 @@ export const getElementPointsCoords = (
 ): Bounds => {
   // This might be computationally heavey
   const gen = rough.generator();
-  const curve =
-    element.roundness == null
-      ? gen.linearPath(
-          points as [number, number][],
-          generateRoughOptions(element),
-        )
-      : gen.curve(points as [number, number][], generateRoughOptions(element));
+  const autoCubicPath = getAutoCubicConnectorPath(
+    element,
+    points as readonly LocalPoint[],
+  );
+  const curve = autoCubicPath
+    ? gen.path(autoCubicPath, generateRoughOptions(element))
+    : element.roundness == null
+    ? gen.linearPath(
+        points as [number, number][],
+        generateRoughOptions(element),
+      )
+    : gen.curve(points as [number, number][], generateRoughOptions(element));
   const ops = getCurvePathOps(curve);
   const [minX, minY, maxX, maxY] = getMinMaxXYFromCurvePathOps(ops);
   return [

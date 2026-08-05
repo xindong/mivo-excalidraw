@@ -100,7 +100,7 @@ npx --yes yarn@1.22.22 install
 npx --yes yarn@1.22.22 start
 ```
 
-打开 `http://localhost:9901/custom-elements.html` 可以访问独立的 Custom Element 开发夹具。该页面演示混合媒体导入、带缓存的 Canvas 卡片、交互式 Overlay、Preview 刷新和内存 AssetStore。
+打开 `http://localhost:9901/custom-elements.html` 可以访问独立的 Custom Element 开发夹具。该页面演示混合媒体导入、带缓存的 Canvas 卡片、交互式 Overlay、Preview 刷新和内存 AssetStore；悬浮节点后可以从右侧输出点拖出曲线，新建生图或生视频 Workflow 节点。连线固定从源节点右侧中点出发，并自动连接到目标节点左侧中点。
 
 修改 fork 专属 API 或架构前，请先阅读 [`MIVO_FORK.md`](./MIVO_FORK.md) 和 [`AGENTS.md`](./AGENTS.md)。
 

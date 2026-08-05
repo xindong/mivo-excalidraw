@@ -18,6 +18,7 @@ import { getFrameChildren } from "./frame";
 
 import { LinearElementEditor } from "./linearElementEditor";
 import { selectGroupsForSelectedElements } from "./groups";
+import { isElementSelectable } from "./autoCubicConnector";
 
 import { isNonDeletedElement } from ".";
 
@@ -31,7 +32,9 @@ import type {
 } from "./types";
 
 const shouldIgnoreElementFromSelection = (element: ExcalidrawElement) =>
-  element.locked || isBoundToContainer(element);
+  element.locked ||
+  !isElementSelectable(element) ||
+  isBoundToContainer(element);
 
 const excludeElementsFromFrames = <T extends ExcalidrawElement>(
   selectedElements: readonly T[],

@@ -13,6 +13,9 @@ import {
   Scene,
   syncInvalidIndicesImmutable,
   updateBoundElements,
+  isElementDirectlyMutable,
+  shouldCascadeDeleteWithEndpoint,
+  normalizeLinearStrokeGradient,
   type ExcalidrawElementSkeleton,
 } from "@excalidraw/element";
 import { randomId } from "@excalidraw/common";
@@ -240,10 +243,18 @@ const applySceneOperation = (
       next,
       next.filter((element) => ids.has(element.id)),
     );
+    const cascadedConnectorIds = next
+      .filter(
+        (element) =>
+          !ids.has(element.id) &&
+          element.isDeleted &&
+          shouldCascadeDeleteWithEndpoint(element),
+      )
+      .map((element) => element.id);
     return {
       elements: next,
       created: [],
-      touched: [...ids],
+      touched: [...ids, ...cascadedConnectorIds],
     };
   }
 
@@ -314,6 +325,7 @@ const applySceneOperation = (
   }
 
   if (operation.type === "layout") {
+    ensureElements(elements, operation.elementIds);
     return {
       elements: layoutCanvasElements(elements, operation),
       created: [],
@@ -403,6 +415,10 @@ const createElements = (items: readonly CanvasCreateItem[]) => {
                 ? undefined
                 : item.backgroundColor,
             strokeWidth: item.strokeWidth,
+            strokeGradient:
+              item.shape === "line" || item.shape === "arrow"
+                ? item.strokeGradient
+                : undefined,
           };
     elements.push(
       ...(convertToExcalidrawElements([skeleton], {
@@ -500,6 +516,16 @@ const patchElement = (
     }
     if (patch.customData !== undefined) {
       updates.customData = patch.customData;
+    }
+    if (patch.strokeGradient !== undefined) {
+      if (element.type !== "line" && element.type !== "arrow") {
+        throw invalidCanvasOperation(
+          "Canvas strokeGradient can only patch line or arrow elements",
+        );
+      }
+      updates.strokeGradient = patch.strokeGradient
+        ? normalizeLinearStrokeGradient(patch.strokeGradient)
+        : null;
     }
     if (element.type === "custom") {
       for (const key of [
@@ -661,6 +687,15 @@ const connectElements = (
       );
     }
   }
+  if (
+    operation.routing !== undefined &&
+    operation.routing !== "straight" &&
+    operation.routing !== "auto-cubic"
+  ) {
+    throw invalidCanvasOperation(
+      "Canvas connector routing must be straight or auto-cubic",
+    );
+  }
   const from = elements.find((element) => element.id === operation.from)!;
   const to = elements.find((element) => element.id === operation.to)!;
   if (
@@ -671,18 +706,66 @@ const connectElements = (
   ) {
     throw invalidCanvasOperation("Canvas connector endpoints must be bindable");
   }
-  const startX = from.x + from.width / 2;
-  const startY = from.y + from.height / 2;
-  const endX = to.x + to.width / 2;
-  const endY = to.y + to.height / 2;
+  const resolveAnchor = (anchor: typeof operation.fromAnchor, name: string) => {
+    const resolved = anchor ?? { x: 0.5, y: 0.5 };
+    finiteRequired(resolved.x, `Canvas connector ${name}.x`);
+    finiteRequired(resolved.y, `Canvas connector ${name}.y`);
+    if (resolved.x < 0 || resolved.x > 1 || resolved.y < 0 || resolved.y > 1) {
+      throw invalidCanvasOperation(
+        `Canvas connector ${name} must use normalized coordinates between 0 and 1`,
+      );
+    }
+    return resolved;
+  };
+  const getAnchorPoint = (
+    element: typeof from,
+    anchor: ReturnType<typeof resolveAnchor>,
+  ) => {
+    const centerX = element.x + element.width / 2;
+    const centerY = element.y + element.height / 2;
+    const localX = element.x + element.width * anchor.x;
+    const localY = element.y + element.height * anchor.y;
+    const cos = Math.cos(element.angle);
+    const sin = Math.sin(element.angle);
+    return {
+      x: centerX + (localX - centerX) * cos - (localY - centerY) * sin,
+      y: centerY + (localX - centerX) * sin + (localY - centerY) * cos,
+    };
+  };
+  const fromAnchor = resolveAnchor(operation.fromAnchor, "fromAnchor");
+  const toAnchor = resolveAnchor(operation.toAnchor, "toAnchor");
+  const start = getAnchorPoint(from, fromAnchor);
+  const end = getAnchorPoint(to, toAnchor);
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const isAutoCubic = operation.routing === "auto-cubic";
   const connectorSkeleton: ExcalidrawElementSkeleton = {
     type: "arrow",
-    x: startX,
-    y: startY,
-    points: [pointFrom(0, 0), pointFrom(endX - startX, endY - startY)],
-    endArrowhead: operation.endArrowhead ?? "arrow",
+    x: start.x,
+    y: start.y,
+    points: [pointFrom(0, 0), pointFrom(deltaX, deltaY)],
+    roundness: null,
+    roughness: isAutoCubic ? 0 : undefined,
+    connector: isAutoCubic
+      ? {
+          routing: "auto-cubic",
+          interaction: "managed",
+          deletePolicy: "cascade",
+        }
+      : null,
+    endArrowhead: isAutoCubic ? null : operation.endArrowhead ?? "arrow",
     strokeColor: operation.strokeColor,
     strokeWidth: operation.strokeWidth,
+    strokeGradient:
+      operation.strokeGradient === undefined
+        ? isAutoCubic
+          ? {
+              type: "linear",
+              startOpacity: 0.55,
+              endOpacity: 1,
+            }
+          : null
+        : operation.strokeGradient,
     ...(operation.label ? { label: { text: operation.label } } : {}),
   };
   const created = convertToExcalidrawElements([
@@ -695,13 +778,13 @@ const connectElements = (
   const boundArrow = newElementWith(arrow, {
     startBinding: {
       elementId: from.id,
-      fixedPoint: [0.5, 0.5],
-      mode: "orbit",
+      fixedPoint: [fromAnchor.x, fromAnchor.y],
+      mode: isAutoCubic ? "fixed" : "orbit",
     },
     endBinding: {
       elementId: to.id,
-      fixedPoint: [0.5, 0.5],
-      mode: "orbit",
+      fixedPoint: [toAnchor.x, toAnchor.y],
+      mode: isAutoCubic ? "fixed" : "orbit",
     },
   });
   const connectedElements = created.map((element) =>
@@ -775,6 +858,19 @@ const ensureElements = (
   if (missing.length) {
     throw invalidCanvasOperation(
       `Canvas element not found: ${missing.join(", ")}`,
+    );
+  }
+  const managedConnectors = elements
+    .filter(
+      (element) =>
+        ids.includes(element.id) && !isElementDirectlyMutable(element),
+    )
+    .map((element) => element.id);
+  if (managedConnectors.length) {
+    throw invalidCanvasOperation(
+      `Managed connectors are controlled by their endpoint nodes: ${managedConnectors.join(
+        ", ",
+      )}`,
     );
   }
 };

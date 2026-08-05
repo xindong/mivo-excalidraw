@@ -82,6 +82,8 @@ export * from "./image";
 export * from "./linearElementEditor";
 export * from "./mutateElement";
 export * from "./newElement";
+export * from "./autoCubicConnector";
+export * from "./linearStrokeGradient";
 export * from "./positionElementsOnGrid";
 export * from "./renderElement";
 export * from "./resizeElements";

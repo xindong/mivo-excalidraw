@@ -1,0 +1,189 @@
+.workflow-connector__point {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 0 1.5px #6f5bf6, 0 4px 14px rgba(52, 38, 155, 0.24);
+  cursor: crosshair;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.workflow-connector__point::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: inherit;
+}
+
+.workflow-connector__point > span {
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  background: #6f5bf6;
+}
+
+.workflow-connector__point:hover,
+.workflow-connector__point:active {
+  background: #6f5bf6;
+  box-shadow: 0 0 0 4px rgba(111, 91, 246, 0.16),
+    0 6px 18px rgba(52, 38, 155, 0.3);
+  transform: scale(1.08);
+}
+
+.workflow-connector__point:hover > span,
+.workflow-connector__point:active > span {
+  background: #fff;
+}
+
+.workflow-connector__preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.workflow-connector__preview path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.workflow-connector__preview-shadow {
+  stroke: rgba(84, 91, 105, 0.1);
+  stroke-width: 4;
+}
+
+.workflow-connector__preview-line {
+  stroke: url("#workflow-connector-preview-gradient");
+  stroke-width: 1.5;
+  stroke-dasharray: 6 7;
+  animation: workflow-connector-dash 650ms linear infinite;
+}
+
+.workflow-connector__preview-end {
+  fill: #fff;
+  stroke: #7d8492;
+  stroke-width: 1.5;
+}
+
+.workflow-connector__menu {
+  position: fixed;
+  z-index: 10001;
+  width: 232px;
+  padding: 7px;
+  border: 1px solid rgba(42, 39, 61, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 50px rgba(35, 30, 72, 0.18),
+    0 2px 8px rgba(35, 30, 72, 0.08);
+  backdrop-filter: blur(18px) saturate(1.2);
+  color: #24212f;
+  font-family: "Avenir Next", "PingFang SC", sans-serif;
+  animation: workflow-menu-enter 130ms ease-out both;
+}
+
+.workflow-connector__menu-title {
+  padding: 6px 9px 7px;
+  color: #858091;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workflow-connector__menu button {
+  display: grid;
+  grid-template-columns: 34px 1fr 16px;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 110ms ease, transform 110ms ease;
+}
+
+.workflow-connector__menu button:hover {
+  background: #f1efff;
+  transform: translateX(1px);
+}
+
+.workflow-connector__menu button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.workflow-connector__menu-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: #eeebff;
+  color: #6350e8;
+}
+
+.workflow-connector__menu-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.workflow-connector__menu strong,
+.workflow-connector__menu small {
+  display: block;
+}
+
+.workflow-connector__menu strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workflow-connector__menu small {
+  margin-top: 2px;
+  color: #918b9f;
+  font-size: 10px;
+  letter-spacing: 0.015em;
+}
+
+.workflow-connector__menu-arrow {
+  color: #aaa4b5;
+  font-size: 14px;
+}
+
+@keyframes workflow-connector-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@keyframes workflow-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-connector__preview-line,
+  .workflow-connector__menu {
+    animation: none;
+  }
+}

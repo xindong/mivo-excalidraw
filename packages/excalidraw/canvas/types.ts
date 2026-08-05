@@ -1,8 +1,10 @@
 import type {
   Arrowhead,
+  ConnectorConfig,
   CustomElementResource,
   ExcalidrawElement,
   FileId,
+  LinearStrokeGradient,
   OrderedExcalidrawElement,
 } from "@excalidraw/element/types";
 import type { CustomElementData } from "@excalidraw/element";
@@ -72,6 +74,7 @@ export type CanvasElementProjection = Readonly<{
     boundElementIds: readonly string[];
     startBindingId: string | null;
     endBindingId: string | null;
+    connector: ConnectorConfig | null;
   }>;
   custom?: Readonly<Record<string, unknown>> | null;
   raw?: OrderedExcalidrawElement;
@@ -115,6 +118,7 @@ export type CanvasCreateItem =
         strokeColor?: string;
         backgroundColor?: string;
         strokeWidth?: number;
+        strokeGradient?: LinearStrokeGradient | null;
       }>)
   | (CanvasCreateBase &
       Readonly<{
@@ -138,6 +142,7 @@ export type CanvasElementPatch = Readonly<{
   opacity?: number;
   locked?: boolean;
   strokeColor?: string;
+  strokeGradient?: LinearStrokeGradient | null;
   backgroundColor?: string;
   text?: string;
   fontSize?: number;
@@ -210,10 +215,15 @@ export type CanvasOperation =
       type: "connect";
       from: string;
       to: string;
+      /** Normalized anchor positions within the source and target elements. */
+      fromAnchor?: CanvasPoint;
+      toAnchor?: CanvasPoint;
+      routing?: "straight" | "auto-cubic";
       label?: string;
       endArrowhead?: Arrowhead;
       strokeColor?: string;
       strokeWidth?: number;
+      strokeGradient?: LinearStrokeGradient | null;
     }>
   | CanvasLayoutOperation
   | Readonly<{

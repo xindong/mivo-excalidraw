@@ -121,6 +121,9 @@ const projectElement = (
       opacity: element.opacity,
       strokeColor: element.strokeColor,
       backgroundColor: element.backgroundColor,
+      ...(element.type === "line" || element.type === "arrow"
+        ? { strokeGradient: element.strokeGradient ?? null }
+        : {}),
       ...(element.type === "text" ? { fontSize: element.fontSize } : {}),
     };
   }
@@ -140,6 +143,10 @@ const projectElement = (
       endBindingId:
         "endBinding" in element && element.endBinding
           ? element.endBinding.elementId
+          : null,
+      connector:
+        element.type === "line" || element.type === "arrow"
+          ? element.connector
           : null,
     };
   }

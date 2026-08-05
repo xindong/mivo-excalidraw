@@ -6,6 +6,8 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import {
+  createCustomElementDevElements,
+  customElementDevFiles,
   customElementDevAssetStore,
   registerCustomElementDevRenderers,
 } from "./customElements";
@@ -29,7 +31,8 @@ const CustomElementsDevApp = () => {
         }}
         customElementAssets={customElementDevAssetStore}
         initialData={{
-          elements: [],
+          elements: createCustomElementDevElements(),
+          files: customElementDevFiles,
           appState: {
             viewBackgroundColor: "#f7f7fb",
             scrollConstraints: {

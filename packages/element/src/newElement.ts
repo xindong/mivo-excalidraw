@@ -27,6 +27,7 @@ import { normalizeText, measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
 
 import { isLineElement } from "./typeChecks";
+import { normalizeLinearStrokeGradient } from "./linearStrokeGradient";
 
 import type {
   ExcalidrawElement,
@@ -50,6 +51,8 @@ import type {
   ExcalidrawElbowArrowElement,
   ExcalidrawLineElement,
   ExcalidrawCustomElement,
+  ConnectorConfig,
+  LinearStrokeGradient,
 } from "./types";
 
 export type ElementConstructorOpts = MarkOptional<
@@ -470,6 +473,8 @@ export const newLinearElement = (
     type: ExcalidrawLinearElement["type"];
     points?: ExcalidrawLinearElement["points"];
     polygon?: ExcalidrawLineElement["polygon"];
+    connector?: ConnectorConfig | null;
+    strokeGradient?: LinearStrokeGradient | null;
   } & ElementConstructorOpts,
 ): NonDeleted<ExcalidrawLinearElement> => {
   const element = {
@@ -480,6 +485,8 @@ export const newLinearElement = (
     endBinding: null,
     startArrowhead: null,
     endArrowhead: null,
+    connector: opts.connector ?? null,
+    strokeGradient: normalizeLinearStrokeGradient(opts.strokeGradient),
   };
 
   if (isLineElement(element)) {
@@ -502,6 +509,8 @@ export const newArrowElement = <T extends boolean>(
     points?: ExcalidrawArrowElement["points"];
     elbowed?: T;
     fixedSegments?: ExcalidrawElbowArrowElement["fixedSegments"] | null;
+    connector?: ConnectorConfig | null;
+    strokeGradient?: LinearStrokeGradient | null;
   } & ElementConstructorOpts,
 ): T extends true
   ? NonDeleted<ExcalidrawElbowArrowElement>
@@ -514,6 +523,8 @@ export const newArrowElement = <T extends boolean>(
       endBinding: null,
       startArrowhead: opts.startArrowhead || null,
       endArrowhead: opts.endArrowhead || null,
+      connector: opts.connector ?? null,
+      strokeGradient: normalizeLinearStrokeGradient(opts.strokeGradient),
       elbowed: true,
       fixedSegments: opts.fixedSegments || [],
       startIsSpecial: false,
@@ -528,6 +539,8 @@ export const newArrowElement = <T extends boolean>(
     endBinding: null,
     startArrowhead: opts.startArrowhead || null,
     endArrowhead: opts.endArrowhead || null,
+    connector: opts.connector ?? null,
+    strokeGradient: normalizeLinearStrokeGradient(opts.strokeGradient),
     elbowed: false,
   } as T extends true
     ? NonDeleted<ExcalidrawElbowArrowElement>

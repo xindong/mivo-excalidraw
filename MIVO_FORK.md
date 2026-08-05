@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.15`
+- Current prerelease: `0.18.1-mivo.16`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -118,6 +118,7 @@ The Canvas Core SDK is exported from `@miragari/mivo-excalidraw/canvas`. It prov
 
 - scene inspection and pagination
 - typed create/patch/transform/layout/connect/delete operations
+- normalized connector anchors, serialized linear stroke gradients, and straight/auto-controlled cubic Bézier bound-arrow routing; Canvas and SVG share gradient data, while managed auto curves remain non-interactive node attachments and cascade-delete with either endpoint
 - revision tracking
 - structured errors
 - controller extensions and capability discovery
@@ -125,6 +126,30 @@ The Canvas Core SDK is exported from `@miragari/mivo-excalidraw/canvas`. It prov
 Agent integrations should translate tool calls into Canvas operations. They must not depend on App internals or mutate scene element objects directly.
 
 The `/canvas` runtime is built as an independent entry point. Importing it does not load the React editor entry.
+
+Managed connections are first-class linear elements. Their behavior is declared by the serialized `connector` field instead of application-specific `customData` flags:
+
+```ts
+{
+  connector: {
+    routing: "auto-cubic",
+    interaction: "managed",
+    deletePolicy: "cascade",
+  },
+  startBinding: {
+    elementId: sourceId,
+    fixedPoint: [1, 0.5],
+    mode: "fixed",
+  },
+  endBinding: {
+    elementId: targetId,
+    fixedPoint: [0, 0.5],
+    mode: "fixed",
+  },
+}
+```
+
+`routing` owns geometry, `interaction` owns direct manipulation policy, and `deletePolicy` owns endpoint lifecycle. Fixed port positions belong only to bindings. The fork intentionally does not restore the former Mivo `customData.mivoAutoCubicConnector` marker; old development-fixture connections must be recreated.
 
 ### Host capabilities and rendering controls
 
@@ -147,6 +172,8 @@ The core must not contain `video`, `audio`, or application-specific card semanti
 | Interactive controls/DOM         | Overlay Layer          |
 | Playback/decoding/business rules | Host extension/fixture |
 | Agent scene operations           | Canvas Core SDK        |
+| Connector routing and policy     | Linear Element core    |
+| Connector fixed port positions   | Binding core           |
 
 ## Development fixture
 
@@ -156,7 +183,7 @@ Run the repository fixture with:
 npx --yes yarn@1.22.22 start
 ```
 
-Open `http://localhost:9901/custom-elements.html`. The fixture supports mixed multi-file image/video import, Custom Canvas cards, a video DOM surface, play/pause/progress controls, preview refresh, Overlay transitions, and an in-memory AssetStore.
+Open `http://localhost:9901/custom-elements.html`. The fixture supports mixed multi-file image/video import, Custom Canvas cards, a video DOM surface, play/pause/progress controls, preview refresh, Overlay transitions, and an in-memory AssetStore. Hovering a media or workflow card exposes one right-side output point; dragging it opens a workflow creation menu and atomically creates a bound curved arrow plus an image/video workflow card to the right. The connection starts at the fixed right-center anchor of the source node and automatically binds to the left-center anchor of the target node.
 
 The in-memory store is intentionally non-persistent. Production hosts must provide their own storage and resource resolution.
 

@@ -68,6 +68,10 @@ import { getCornerRadius } from "./utils";
 
 import { ShapeCache } from "./shape";
 import {
+  colorWithOpacity,
+  getLinearStrokeGradient,
+} from "./linearStrokeGradient";
+import {
   createCustomElementDrawCommandLayers,
   createCustomElementDrawCommands,
   drawCustomElementCommandsToCanvas,
@@ -453,11 +457,51 @@ const drawElementOnCanvas = (
       context.lineJoin = "round";
       context.lineCap = "round";
 
-      ShapeCache.generateElementShape(element, renderConfig).forEach(
-        (shape) => {
-          rc.draw(shape);
-        },
-      );
+      const shapes = ShapeCache.generateElementShape(element, renderConfig);
+      const strokeGradient = getLinearStrokeGradient(element);
+      const canvasGradient = strokeGradient
+        ? context.createLinearGradient(
+            strokeGradient.start[0],
+            strokeGradient.start[1],
+            strokeGradient.end[0],
+            strokeGradient.end[1],
+          )
+        : null;
+      if (canvasGradient && strokeGradient) {
+        canvasGradient.addColorStop(
+          0,
+          colorWithOpacity(
+            applyDarkModeFilter(
+              strokeGradient.startColor,
+              renderConfig.theme === THEME.DARK,
+            ),
+            strokeGradient.startOpacity,
+          ),
+        );
+        canvasGradient.addColorStop(
+          1,
+          colorWithOpacity(
+            applyDarkModeFilter(
+              strokeGradient.endColor,
+              renderConfig.theme === THEME.DARK,
+            ),
+            strokeGradient.endOpacity,
+          ),
+        );
+      }
+      shapes.forEach((shape, index) => {
+        rc.draw(
+          index === 0 && canvasGradient
+            ? {
+                ...shape,
+                options: {
+                  ...shape.options,
+                  stroke: canvasGradient as unknown as string,
+                },
+              }
+            : shape,
+        );
+      });
       break;
     }
     case "freedraw": {

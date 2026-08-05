@@ -58,6 +58,7 @@ import {
 
 import { aabbForElement, elementCenterPoint } from "./bounds";
 import { updateElbowArrowPoints } from "./elbowArrow";
+import { shouldCascadeDeleteWithEndpoint } from "./autoCubicConnector";
 import {
   deconstructDiamondElement,
   deconstructRectanguloidElement,
@@ -1913,9 +1914,7 @@ export const updateBoundPoint = (
     elementsMap,
   );
 
-  // 0. Short-circuit for inside binding as it doesn't require any
-  // calculations and is not affected by other bindings
-  if (binding.mode === "inside") {
+  if (binding.mode === "inside" || binding.mode === "fixed") {
     return LinearElementEditor.createPointAt(
       arrow,
       elementsMap,
@@ -2238,8 +2237,21 @@ export const fixBindingsAfterDeletion = (
   deletedElements: readonly ExcalidrawElement[],
 ): void => {
   const elements = arrayToMap(sceneElements);
+  const deletedIds = new Set(deletedElements.map((element) => element.id));
+  const cascadedConnectors = sceneElements.filter(
+    (element) =>
+      !element.isDeleted &&
+      shouldCascadeDeleteWithEndpoint(element) &&
+      ((element.startBinding &&
+        deletedIds.has(element.startBinding.elementId)) ||
+        (element.endBinding && deletedIds.has(element.endBinding.elementId))),
+  );
 
-  for (const element of deletedElements) {
+  for (const connector of cascadedConnectors) {
+    mutateElement(connector, elements, { isDeleted: true });
+  }
+
+  for (const element of [...cascadedConnectors, ...deletedElements]) {
     BoundElement.unbindAffected(elements, element, (element, updates) =>
       mutateElement(element, elements, updates),
     );

@@ -25,10 +25,7 @@ await controller.apply({
 });
 ```
 
-`patch` can retype an existing Custom Element in place by updating
-`customType`, renderer/version fields, name, resource, preview, and data. Set
-`preserveCenter` when a new width or height should keep the element centered.
-The element id, ordering, grouping, frame, and bindings are preserved.
+`patch` can retype an existing Custom Element in place by updating `customType`, renderer/version fields, name, resource, preview, and data. Set `preserveCenter` when a new width or height should keep the element centered. The element id, ordering, grouping, frame, and bindings are preserved.
 
 ## Protocol
 
@@ -47,6 +44,50 @@ The built-in operations cover:
 - viewport selection/focus
 - viewport centering on a scene point
 - namespaced extension commands
+
+`connect` creates a bound arrow between two bindable elements. By default it connects their centers with a straight route. Hosts can set normalized `fromAnchor` / `toAnchor` points and `routing: "auto-cubic"` for fixed-port workflow connections. The development fixture uses a single right-side output and fixes the source anchor at `{ x: 1, y: 0.5 }`; the target automatically binds at its left-center anchor `{ x: 0, y: 0.5 }`. Auto-cubic routing stores only the two endpoints; its two hidden control points are recalculated automatically and rendered as one pure cubic Bézier path. Its default rendering has no arrowhead and uses the serialized linear-element `strokeGradient` capability to communicate direction. Canvas rendering, SVG export, bounds, collision geometry, and the fixture drag preview consume the same geometry or gradient data.
+
+The resulting arrow stores the formal Connector protocol below. `interaction: "managed"` excludes it from hit testing, point/box selection, and direct Canvas mutation without misusing `locked`. `deletePolicy: "cascade"` deletes it with either endpoint. The two bindings use `mode: "fixed"`, so moving or resizing a node preserves the exact normalized port. The former `customData.mivoAutoCubicConnector` flag is not restored or migrated.
+
+```ts
+{
+  connector: {
+    routing: "auto-cubic",
+    interaction: "managed",
+    deletePolicy: "cascade",
+  },
+  startBinding: {
+    elementId: sourceId,
+    fixedPoint: [1, 0.5],
+    mode: "fixed",
+  },
+  endBinding: {
+    elementId: targetId,
+    fixedPoint: [0, 0.5],
+    mode: "fixed",
+  },
+}
+```
+
+```ts
+await controller.apply({
+  operations: [
+    {
+      type: "connect",
+      from: sourceId,
+      to: workflowId,
+      fromAnchor: { x: 1, y: 0.5 },
+      toAnchor: { x: 0, y: 0.5 },
+      routing: "auto-cubic",
+      strokeGradient: {
+        type: "linear",
+        startOpacity: 0.55,
+        endOpacity: 1,
+      },
+    },
+  ],
+});
+```
 
 Inspect supports ids, types, keyword search, selection, lock state, groups, frames, bounds, pagination, and field projection.
 

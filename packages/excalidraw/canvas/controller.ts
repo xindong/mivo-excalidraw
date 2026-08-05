@@ -1,4 +1,4 @@
-import { CaptureUpdateAction } from "@excalidraw/element";
+import { CaptureUpdateAction, isElementSelectable } from "@excalidraw/element";
 
 import type {
   ExcalidrawElement,
@@ -219,8 +219,17 @@ class LiveCanvasController implements CanvasController {
       request.operations,
     );
     const createdElementIds = [...operationResult.createdElementIds];
+    const createdElementIdSet = new Set(createdElementIds);
+    const selectableCreatedElementIds = operationResult.elements
+      .filter(
+        (element) =>
+          !element.isDeleted &&
+          createdElementIdSet.has(element.id) &&
+          isElementSelectable(element),
+      )
+      .map((element) => element.id);
     const selectedElementIds = request.selectCreated
-      ? toSelectedElementIds(createdElementIds)
+      ? toSelectedElementIds(selectableCreatedElementIds)
       : operationResult.selectedElementIds;
     const focusElementIds = request.focusCreated
       ? createdElementIds
