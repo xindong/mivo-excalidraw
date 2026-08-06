@@ -224,6 +224,12 @@ export type CanvasOperation =
       strokeColor?: string;
       strokeWidth?: number;
       strokeGradient?: LinearStrokeGradient | null;
+      /**
+       * Hand-drawn wobble intensity for the connector stroke. Defaults to 0
+       * (smooth) for `auto-cubic` managed connectors; pass a positive value
+       * (for example 1) to render the curve with the rough hand-drawn look.
+       */
+      roughness?: number;
     }>
   | Readonly<{
       type: "disconnect";

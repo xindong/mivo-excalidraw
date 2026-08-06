@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.18
+
+### Mivo fork features
+
+- Canvas Core `connect` now accepts an optional `roughness` so hosts can render managed auto-cubic connectors with the rough hand-drawn stroke instead of the default smooth curve.
+
 ## 0.18.1-mivo.16
 
 ### Mivo fork features

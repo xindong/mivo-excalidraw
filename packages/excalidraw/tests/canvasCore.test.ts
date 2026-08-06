@@ -72,6 +72,7 @@ describe("Canvas Core public contracts", () => {
     );
 
     expect(connector).toBeDefined();
+    expect(connector?.roughness).toBe(0);
     expect(
       disconnected.elements.find((element) => element.id === connector?.id)
         ?.isDeleted,
@@ -84,6 +85,70 @@ describe("Canvas Core public contracts", () => {
       disconnected.elements.find((element) => element.id === "target")
         ?.boundElements,
     ).toEqual([]);
+  });
+
+  it("honors an explicit connector roughness for hand-drawn managed curves", () => {
+    const snapshot = {
+      elements: [],
+      appState: { editingGroupId: null, selectedGroupIds: {} },
+    } as const;
+    const created = applyCanvasSceneOperations(snapshot, [
+      {
+        type: "create",
+        items: [
+          {
+            kind: "custom",
+            id: "source",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            customType: "mivo.image",
+            rendererId: "image.v1",
+            schemaVersion: 1,
+            rendererVersion: 1,
+          },
+          {
+            kind: "custom",
+            id: "target",
+            x: 300,
+            y: 0,
+            width: 100,
+            height: 100,
+            customType: "mivo.placeholder",
+            rendererId: "placeholder.v1",
+            schemaVersion: 1,
+            rendererVersion: 1,
+          },
+        ],
+      },
+      {
+        type: "connect",
+        from: "source",
+        to: "target",
+        fromAnchor: { x: 1, y: 0.5 },
+        toAnchor: { x: 0, y: 0.5 },
+        routing: "auto-cubic",
+        roughness: 1,
+      },
+    ]);
+
+    const connector = created.elements.find(
+      (element) => element.type === "arrow",
+    );
+
+    expect(connector?.roughness).toBe(1);
+    expect(() =>
+      applyCanvasSceneOperations({ ...snapshot, elements: created.elements }, [
+        {
+          type: "connect",
+          from: "source",
+          to: "target",
+          routing: "auto-cubic",
+          roughness: -1,
+        },
+      ]),
+    ).toThrow("Canvas connector roughness must not be negative");
   });
 
   it("preserves typed extension definitions without wrapping execution", () => {

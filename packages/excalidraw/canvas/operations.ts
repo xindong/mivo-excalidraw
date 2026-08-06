@@ -237,8 +237,8 @@ const applySceneOperation = (
         ids.has(element.id)
           ? newElementWith(element, { isDeleted: true })
           : element.frameId && ids.has(element.frameId)
-            ? newElementWith(element, { frameId: null })
-            : element,
+          ? newElementWith(element, { frameId: null })
+          : element,
       );
     fixBindingsAfterDeletion(
       next,
@@ -697,6 +697,14 @@ const connectElements = (
       );
     }
   }
+  if (operation.roughness !== undefined) {
+    finiteRequired(operation.roughness, "Canvas connector roughness");
+    if (operation.roughness < 0) {
+      throw invalidCanvasOperation(
+        "Canvas connector roughness must not be negative",
+      );
+    }
+  }
   if (
     operation.routing !== undefined &&
     operation.routing !== "straight" &&
@@ -755,7 +763,7 @@ const connectElements = (
     y: start.y,
     points: [pointFrom(0, 0), pointFrom(deltaX, deltaY)],
     roundness: null,
-    roughness: isAutoCubic ? 0 : undefined,
+    roughness: operation.roughness ?? (isAutoCubic ? 0 : undefined),
     connector: isAutoCubic
       ? {
           routing: "auto-cubic",
@@ -763,7 +771,7 @@ const connectElements = (
           deletePolicy: "cascade",
         }
       : null,
-    endArrowhead: isAutoCubic ? null : (operation.endArrowhead ?? "arrow"),
+    endArrowhead: isAutoCubic ? null : operation.endArrowhead ?? "arrow",
     strokeColor: operation.strokeColor,
     strokeWidth: operation.strokeWidth,
     strokeGradient:

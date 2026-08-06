@@ -85,6 +85,9 @@ await controller.apply({
         startOpacity: 0.55,
         endOpacity: 1,
       },
+      // optional: positive values render the curve with the rough
+      // hand-drawn look; managed connectors default to 0 (smooth)
+      roughness: 1,
     },
   ],
 });
