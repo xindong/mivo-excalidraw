@@ -83,6 +83,29 @@ export const getElementsInManagedConnectorRenderOrder = <
   return [...connectors, ...regularElements];
 };
 
+/**
+ * Visits managed connectors before regular elements without materializing a
+ * reordered copy of the full element collection. Render hot paths should use
+ * this helper instead of getElementsInManagedConnectorRenderOrder().
+ */
+export const forEachElementInManagedConnectorRenderOrder = <
+  TElement extends ExcalidrawElement,
+>(
+  elements: readonly TElement[],
+  visitor: (element: TElement) => void,
+) => {
+  for (const element of elements) {
+    if (isManagedConnector(element)) {
+      visitor(element);
+    }
+  }
+  for (const element of elements) {
+    if (!isManagedConnector(element)) {
+      visitor(element);
+    }
+  }
+};
+
 export const getAutoCubicGeometry = (
   start: AutoCubicPoint,
   end: AutoCubicPoint,

@@ -22,7 +22,7 @@ import {
 import { renderElement } from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
-import { getElementsInManagedConnectorRenderOrder } from "@excalidraw/element";
+import { forEachElementInManagedConnectorRenderOrder } from "@excalidraw/element";
 
 import type {
   ElementsMap,
@@ -453,91 +453,92 @@ const _renderStaticScene = (config: StaticSceneRenderConfig) => {
   const inFrameGroupsMap = new Map<string, boolean>();
 
   // Paint visible elements
-  getElementsInManagedConnectorRenderOrder(visibleElements)
-    .filter((el) => !isIframeLikeElement(el))
-    .forEach((element) => {
-      try {
-        const frameId = element.frameId || appState.frameToHighlight?.id;
+  forEachElementInManagedConnectorRenderOrder(visibleElements, (element) => {
+    if (isIframeLikeElement(element)) {
+      return;
+    }
+    try {
+      const frameId = element.frameId || appState.frameToHighlight?.id;
 
+      if (
+        isTextElement(element) &&
+        element.containerId &&
+        elementsMap.has(element.containerId)
+      ) {
+        // will be rendered with the container
+        return;
+      }
+
+      context.save();
+
+      if (
+        frameId &&
+        appState.frameRendering.enabled &&
+        appState.frameRendering.clip
+      ) {
+        const frame = getTargetFrame(element, elementsMap, appState);
         if (
-          isTextElement(element) &&
-          element.containerId &&
-          elementsMap.has(element.containerId)
-        ) {
-          // will be rendered with the container
-          return;
-        }
-
-        context.save();
-
-        if (
-          frameId &&
-          appState.frameRendering.enabled &&
-          appState.frameRendering.clip
-        ) {
-          const frame = getTargetFrame(element, elementsMap, appState);
-          if (
-            frame &&
-            shouldApplyFrameClip(
-              element,
-              frame,
-              appState,
-              elementsMap,
-              inFrameGroupsMap,
-            )
-          ) {
-            frameClip(frame, context, renderConfig, appState);
-          }
-          renderElement(
+          frame &&
+          shouldApplyFrameClip(
             element,
-            elementsMap,
-            allElementsMap,
-            rc,
-            context,
-            renderConfig,
+            frame,
             appState,
-          );
-        } else {
-          renderElement(
-            element,
             elementsMap,
-            allElementsMap,
-            rc,
-            context,
-            renderConfig,
-            appState,
-          );
+            inFrameGroupsMap,
+          )
+        ) {
+          frameClip(frame, context, renderConfig, appState);
         }
-
-        const boundTextElement = getBoundTextElement(element, elementsMap);
-        if (boundTextElement) {
-          renderElement(
-            boundTextElement,
-            elementsMap,
-            allElementsMap,
-            rc,
-            context,
-            renderConfig,
-            appState,
-          );
-        }
-
-        context.restore();
-
-        if (!isExporting && renderConfig.renderLinks !== false) {
-          renderLinkIcon(element, context, appState, elementsMap);
-        }
-      } catch (error: any) {
-        console.error(
-          error,
-          element.id,
-          element.x,
-          element.y,
-          element.width,
-          element.height,
+        renderElement(
+          element,
+          elementsMap,
+          allElementsMap,
+          rc,
+          context,
+          renderConfig,
+          appState,
+        );
+      } else {
+        renderElement(
+          element,
+          elementsMap,
+          allElementsMap,
+          rc,
+          context,
+          renderConfig,
+          appState,
         );
       }
-    });
+
+      const boundTextElement = getBoundTextElement(element, elementsMap);
+      if (boundTextElement) {
+        renderElement(
+          boundTextElement,
+          elementsMap,
+          allElementsMap,
+          rc,
+          context,
+          renderConfig,
+          appState,
+        );
+      }
+
+      context.restore();
+
+      if (!isExporting && renderConfig.renderLinks !== false) {
+        renderLinkIcon(element, context, appState, elementsMap);
+      }
+    } catch (error: any) {
+      console.error(
+        error,
+        element.id,
+        element.x,
+        element.y,
+        element.width,
+        element.height,
+      );
+    }
+  });
 
   // render embeddables on top
   visibleElements

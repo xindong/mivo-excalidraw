@@ -7440,8 +7440,10 @@ class App extends React.Component<AppProps, AppState> {
                   !(isTextElement(element) && element.containerId)),
             )
     )
-      .filter(isElementHitTestable)
-      .filter((el) => this.hitElement(x, y, el))
+      .filter(
+        (element) =>
+          isElementHitTestable(element) && this.hitElement(x, y, element),
+      )
       .filter((element) => {
         // hitting a frame's element from outside the frame is not considered a hit
         const containingFrame = getContainingFrame(element, elementsMap);

@@ -40,7 +40,7 @@ import {
 } from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
-import { getElementsInManagedConnectorRenderOrder } from "@excalidraw/element";
+import { forEachElementInManagedConnectorRenderOrder } from "@excalidraw/element";
 
 import type {
   ExcalidrawElement,
@@ -816,54 +816,53 @@ export const renderSceneToSvg = (
   }
 
   // render elements
-  getElementsInManagedConnectorRenderOrder(elements)
-    .filter((el) => !isIframeLikeElement(el))
-    .forEach((element) => {
-      if (!element.isDeleted) {
-        if (
-          isTextElement(element) &&
-          element.containerId &&
-          elementsMap.has(element.containerId)
-        ) {
-          // will be rendered with the container
-          return;
-        }
+  forEachElementInManagedConnectorRenderOrder(elements, (element) => {
+    if (isIframeLikeElement(element) || element.isDeleted) {
+      return;
+    }
+    if (
+      isTextElement(element) &&
+      element.containerId &&
+      elementsMap.has(element.containerId)
+    ) {
+      // will be rendered with the container
+      return;
+    }
 
-        try {
-          renderElementToSvg(
-            element,
-            elementsMap,
-            rsvg,
-            svgRoot,
-            files,
-            element.x + renderConfig.offsetX,
-            element.y + renderConfig.offsetY,
-            renderConfig,
-          );
+    try {
+      renderElementToSvg(
+        element,
+        elementsMap,
+        rsvg,
+        svgRoot,
+        files,
+        element.x + renderConfig.offsetX,
+        element.y + renderConfig.offsetY,
+        renderConfig,
+      );
 
-          const boundTextElement = getBoundTextElement(element, elementsMap);
-          if (boundTextElement?.isDeleted === false) {
-            renderElementToSvg(
-              boundTextElement as Readonly<NonDeletedExcalidrawElement>,
-              elementsMap,
-              rsvg,
-              svgRoot,
-              files,
-              boundTextElement.x + renderConfig.offsetX,
-              boundTextElement.y + renderConfig.offsetY,
-              renderConfig,
-            );
-          } else if (boundTextElement) {
-            // SAFETY: This should never happen, but log it just in case
-            console.error(
-              "[NONDELETED][INVARIANT] Skipped rendering deleted bound text element",
-            );
-          }
-        } catch (error: any) {
-          console.error(error);
-        }
+      const boundTextElement = getBoundTextElement(element, elementsMap);
+      if (boundTextElement?.isDeleted === false) {
+        renderElementToSvg(
+          boundTextElement as Readonly<NonDeletedExcalidrawElement>,
+          elementsMap,
+          rsvg,
+          svgRoot,
+          files,
+          boundTextElement.x + renderConfig.offsetX,
+          boundTextElement.y + renderConfig.offsetY,
+          renderConfig,
+        );
+      } else if (boundTextElement) {
+        // SAFETY: This should never happen, but log it just in case
+        console.error(
+          "[NONDELETED][INVARIANT] Skipped rendering deleted bound text element",
+        );
       }
-    });
+    } catch (error: any) {
+      console.error(error);
+    }
+  });
 
   // render embeddables on top
   elements

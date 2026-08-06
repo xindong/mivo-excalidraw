@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.20
+
+### Mivo fork performance
+
+- Avoided materializing a reordered copy of all visible elements on every Canvas and SVG render while preserving managed Connector background ordering, and removed an intermediate allocation from pointer hit testing.
+
 ## 0.18.1-mivo.19
 
 ### Mivo fork features
