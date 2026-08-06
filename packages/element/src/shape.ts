@@ -911,7 +911,10 @@ const _generateElementShape = (
         shape = [
           generator.path(autoCubicPath, {
             ...options,
-            disableMultiStroke: true,
+            // smooth connectors (roughness 0) keep a single stroke; a
+            // positive roughness opts into the same sketchy multi-stroke
+            // rendering as regular solid linear elements
+            disableMultiStroke: element.roughness === 0,
           }),
         ];
       } else if (!element.roundness) {

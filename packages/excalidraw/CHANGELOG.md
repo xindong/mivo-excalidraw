@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.19
+
+### Mivo fork features
+
+- Managed auto-cubic connectors with a positive `roughness` now render with the same sketchy multi-stroke as regular solid linear elements; smooth connectors keep the single-stroke path.
+
 ## 0.18.1-mivo.18
 
 ### Mivo fork features
