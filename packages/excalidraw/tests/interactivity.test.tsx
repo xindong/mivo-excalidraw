@@ -132,6 +132,45 @@ describe("baseline (interactive & ui enabled by default)", () => {
   });
 });
 
+describe("zoom cache refresh", () => {
+  beforeEach(async () => {
+    mockBoundingClientRect();
+  });
+
+  afterEach(() => {
+    restoreOriginalGetBoundingClientRect();
+  });
+
+  it("refreshes after the configured delay", async () => {
+    await render(
+      <Excalidraw
+        zoomRenderStrategy="cached"
+        zoomCacheRefresh={{ delay: 10 }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    wheelZoom();
+    expect(h.state.shouldCacheIgnoreZoom).toBe(true);
+    await waitFor(() => expect(h.state.shouldCacheIgnoreZoom).toBe(false));
+  });
+
+  it("can keep the zoom cache after input settles", async () => {
+    await render(
+      <Excalidraw
+        zoomRenderStrategy="cached"
+        zoomCacheRefresh={{ enabled: false }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    wheelZoom();
+    expect(h.state.shouldCacheIgnoreZoom).toBe(true);
+    await act(() => sleep(350));
+    expect(h.state.shouldCacheIgnoreZoom).toBe(true);
+  });
+});
+
 describe("interaction={false}", () => {
   let rectangle: ExcalidrawElement;
 

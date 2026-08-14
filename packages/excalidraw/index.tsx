@@ -79,6 +79,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     initialData,
     initialState,
     zoomRenderStrategy = "throttled",
+    zoomCacheRefresh,
     zoomSensitivity = 1,
     onExcalidrawAPI,
     onMount,
@@ -220,6 +221,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           initialData={initialData}
           initialState={initialState}
           zoomRenderStrategy={zoomRenderStrategy}
+          zoomCacheRefresh={zoomCacheRefresh}
           zoomSensitivity={zoomSensitivity}
           onExcalidrawAPI={handleExcalidrawAPI}
           onMount={onMount}
@@ -506,6 +508,7 @@ export type {
   DoubleClickCapability,
   ExcalidrawCapabilities,
   ZoomRenderStrategy,
+  ZoomCacheRefreshOptions,
   RefreshCustomElementPreviewOptions,
   RefreshCustomElementPreviewResult,
   InsertCustomElementsFromFilesOptions,

@@ -3692,6 +3692,10 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   public componentWillUnmount() {
+    if (this.zoomCacheRefreshTimer !== null) {
+      window.clearTimeout(this.zoomCacheRefreshTimer);
+      this.zoomCacheRefreshTimer = null;
+    }
     // we're recreating the api object reference so that the
     // <ExcalidrawAPIContext.Provider/> picks up on it
     this.api = { ...this.api, isDestroyed: true };
@@ -10052,7 +10056,7 @@ class App extends React.Component<AppProps, AppState> {
 
         return null;
       });
-      this.resetShouldCacheIgnoreZoomDebounced();
+      this.scheduleZoomCacheRefresh();
     } else {
       gesture.lastCenter =
         gesture.initialDistance =
@@ -14672,7 +14676,7 @@ class App extends React.Component<AppProps, AppState> {
           ),
           shouldCacheIgnoreZoom,
         }));
-        this.resetShouldCacheIgnoreZoomDebounced();
+        this.scheduleZoomCacheRefresh();
         return;
       }
 
@@ -14787,12 +14791,28 @@ class App extends React.Component<AppProps, AppState> {
     return true;
   };
 
-  private resetShouldCacheIgnoreZoomDebounced = debounce(() => {
-    if (!this.unmounted) {
-      this.lastZoomCacheRefresh = null;
-      this.setState({ shouldCacheIgnoreZoom: false });
+  private zoomCacheRefreshTimer: number | null = null;
+
+  private scheduleZoomCacheRefresh = () => {
+    if (this.zoomCacheRefreshTimer !== null) {
+      window.clearTimeout(this.zoomCacheRefreshTimer);
+      this.zoomCacheRefreshTimer = null;
     }
-  }, 300);
+    if (this.props.zoomCacheRefresh?.enabled === false) {
+      return;
+    }
+    const configuredDelay = this.props.zoomCacheRefresh?.delay ?? 300;
+    const delay = Number.isFinite(configuredDelay)
+      ? Math.max(0, configuredDelay)
+      : 300;
+    this.zoomCacheRefreshTimer = window.setTimeout(() => {
+      this.zoomCacheRefreshTimer = null;
+      if (!this.unmounted) {
+        this.lastZoomCacheRefresh = null;
+        this.setState({ shouldCacheIgnoreZoom: false });
+      }
+    }, delay);
+  };
 
   private updateDOMRect = (cb?: () => void) => {
     if (this.excalidrawContainerRef?.current) {

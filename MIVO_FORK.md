@@ -8,7 +8,7 @@ This document is the canonical overview of the Mivo Excalidraw fork. Read it bef
 - Upstream: `https://github.com/excalidraw/excalidraw`
 - Fork baseline commit: `acb48c3f454f050353c32819d7a5deded201e9db`
 - First consolidated prerelease: `0.18.1-mivo.1`
-- Current prerelease: `0.18.1-mivo.21`
+- Current prerelease: `0.18.1-mivo.22`
 - npm package: `@miragari/mivo-excalidraw`
 - npm dist-tag: `mivo`
 
@@ -198,6 +198,8 @@ The in-memory store is intentionally non-persistent. Production hosts must provi
 - Renderer commands written to `foregroundPainter` bypass the offscreen bitmap and are replayed after the cached layer, keeping small text sharp without regenerating the full element canvas during zoom.
 - Translating a Custom Element by changing only `x`/`y` reuses its offscreen canvas; visual data, preview, and geometry changes still invalidate it.
 - The `cached` zoom render strategy snapshots the complete static viewport during continuous zoom and transforms that one bitmap per frame. Scene, selection, theme, grid, and viewport-size changes invalidate the snapshot; the interactive Canvas remains live, and the static scene is fully redrawn when zoom settles.
+- Hosts may configure or disable the post-zoom scene refresh with
+  `zoomCacheRefresh`. The compatible default remains `{ enabled: true, delay: 300 }`.
 - Source cache mode keeps a stable high-quality cache across zoom changes.
 - Overlay entrance updates are coalesced into one animation-frame state commit.
 - Overlay runtime cleanup follows the non-deleted element collection revision, so geometry, content, and text edits do not rescan the complete scene. Overlay visibility contexts also share one selection count per render.

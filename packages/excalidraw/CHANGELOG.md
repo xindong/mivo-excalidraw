@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.22
+
+### Mivo fork features
+
+- Added `zoomCacheRefresh` so hosts can configure the post-zoom refresh delay or keep the cached viewport until another scene interaction invalidates it.
+
 ## 0.18.1-mivo.21
 
 ### Mivo fork performance

@@ -69,6 +69,20 @@ render: ({ painter, foregroundPainter, viewBox }) => {
 
 Use the foreground layer for a small number of text or vector commands whose sharpness must follow the final viewport scale. Keep images, complex paths, glows, and other expensive drawing in the cached layer. The two painters have independent save/restore and clipping stacks, so foreground clipping must be declared on `foregroundPainter` itself. Canvas and SVG exports compose the cached layer first and the foreground layer second.
 
+Hosts using `zoomRenderStrategy="cached"` may configure the final scene refresh
+after continuous zoom input settles:
+
+```tsx
+<Excalidraw
+  zoomRenderStrategy="cached"
+  zoomCacheRefresh={{ enabled: true, delay: 300 }}
+/>;
+```
+
+Set `enabled: false` to keep the cached viewport until another scene
+interaction invalidates it. This avoids the settle refresh but may leave the
+static scene blurred or omit newly exposed edges after zooming out.
+
 ## Selection and resize policy
 
 Custom renderers may define the visual style and geometry of their selection affordances. Padding, border width/radius, and transform-handle dimensions use viewport pixels, so they remain visually stable across zoom levels:

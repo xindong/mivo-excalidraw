@@ -630,6 +630,13 @@ export type ExcalidrawInitialState = {
 
 export type ZoomRenderStrategy = "cached" | "throttled" | "live";
 
+export type ZoomCacheRefreshOptions = Readonly<{
+  /** Whether to leave the continuous-zoom cache after input settles. */
+  enabled?: boolean;
+  /** Delay after the last zoom input before refreshing, in milliseconds. */
+  delay?: number;
+}>;
+
 export type OnUserFollowedPayload = {
   userToFollow: UserToFollow;
   action: "FOLLOW" | "UNFOLLOW";
@@ -902,6 +909,14 @@ export interface ExcalidrawProps {
    * @default "throttled"
    */
   zoomRenderStrategy?: ZoomRenderStrategy;
+  /**
+   * Controls the final scene refresh after continuous zoom input settles.
+   * Disable it to keep the cached viewport until another scene interaction
+   * invalidates it.
+   *
+   * @default { enabled: true, delay: 300 }
+   */
+  zoomCacheRefresh?: ZoomCacheRefreshOptions;
   /**
    * Multiplier applied to continuous wheel and gesture zoom input.
    *
