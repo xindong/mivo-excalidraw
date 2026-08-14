@@ -19,11 +19,10 @@ import type { DevMediaData, DevVideoData } from "./customElements";
 const VIDEO_STATE_SCOPE = "video-player";
 
 const isOnlySelected = ({
-  element,
-  appState,
+  isSelected,
+  selectedElementCount,
 }: CustomElementOverlayVisibilityContext) =>
-  appState.selectedElementIds[element.id] === true &&
-  Object.values(appState.selectedElementIds).filter(Boolean).length === 1;
+  isSelected && selectedElementCount === 1;
 
 const buttonStyle: CSSProperties = {
   appearance: "none",

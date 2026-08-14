@@ -49,19 +49,36 @@ type SelectionHash = string & { __brand: "selectionHash" };
 
 const getNonDeletedElements = <T extends ExcalidrawElement>(
   allElements: readonly T[],
+  previousElements?: readonly NonDeletedExcalidrawElement[],
 ) => {
   const elementsMap = new Map() as NonDeletedSceneElementsMap;
   const elements: NonDeleted<T>[] = [];
+  let hasCollectionChanged = false;
   for (const element of allElements) {
     if (!element.isDeleted) {
+      const previousElement = previousElements?.[elements.length];
       elements.push(element as NonDeleted<T>);
       elementsMap.set(
         element.id,
         element as Ordered<NonDeletedExcalidrawElement>,
       );
+      if (
+        previousElements &&
+        (!previousElement ||
+          previousElement.id !== element.id ||
+          previousElement.type !== element.type ||
+          (previousElement.type === "custom" &&
+            element.type === "custom" &&
+            previousElement.customType !== element.customType))
+      ) {
+        hasCollectionChanged = true;
+      }
     }
   }
-  return { elementsMap, elements };
+  if (previousElements && previousElements.length !== elements.length) {
+    hasCollectionChanged = true;
+  }
+  return { elementsMap, elements, hasCollectionChanged };
 };
 
 const validateIndicesThrottled = throttle(
@@ -139,9 +156,18 @@ export class Scene {
    * cache-invalidation nonce at the moment.
    */
   private sceneNonce: number | undefined;
+  /**
+   * Changes only when the non-deleted element membership/order or an element's
+   * type/custom type changes. Content and geometry edits leave it untouched.
+   */
+  private nonDeletedElementCollectionRevision = 0;
 
   getSceneNonce() {
     return this.sceneNonce;
+  }
+
+  getNonDeletedElementCollectionRevision() {
+    return this.nonDeletedElementCollectionRevision;
   }
 
   getNonDeletedElementsMap() {
@@ -290,7 +316,13 @@ export class Scene {
       }
       this.elementsMap.set(element.id, element);
     });
-    const nonDeletedElements = getNonDeletedElements(this.elements);
+    const nonDeletedElements = getNonDeletedElements(
+      this.elements,
+      this.nonDeletedElements,
+    );
+    if (nonDeletedElements.hasCollectionChanged) {
+      this.nonDeletedElementCollectionRevision++;
+    }
     this.nonDeletedElements = nonDeletedElements.elements;
     this.nonDeletedElementsMap = nonDeletedElements.elementsMap;
 

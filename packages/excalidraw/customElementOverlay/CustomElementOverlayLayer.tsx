@@ -404,16 +404,16 @@ const getReducedMotion = () =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 export const CustomElementOverlayLayer = ({
-  elements,
   elementsMap,
+  elementCollectionRevision,
   visibleElements,
   appState,
   api,
   assets,
   runtime,
 }: {
-  elements: readonly NonDeletedExcalidrawElement[];
   elementsMap: NonDeletedSceneElementsMap;
+  elementCollectionRevision: number;
   visibleElements: readonly NonDeletedExcalidrawElement[];
   appState: AppState;
   api: ExcalidrawImperativeAPI;
@@ -437,10 +437,21 @@ export const CustomElementOverlayLayer = ({
   const transitionTimers = useRef(new Map<string, number>());
   const enteringTransitionKeys = useRef(new Set<string>());
   const transitionFrame = useRef<number | null>(null);
+  const elementsMapRef = useRef(elementsMap);
+  elementsMapRef.current = elementsMap;
   const visibleElementIds = useMemo(
     () => new Set(visibleElements.map((element) => element.id)),
     [visibleElements],
   );
+  const selectedElementCount = useMemo(() => {
+    let count = 0;
+    for (const elementId in appState.selectedElementIds) {
+      if (appState.selectedElementIds[elementId]) {
+        count++;
+      }
+    }
+    return count;
+  }, [appState.selectedElementIds]);
 
   const updatePresentItems = useCallback(
     (
@@ -473,6 +484,7 @@ export const CustomElementOverlayLayer = ({
         runtime,
         state: runtime.getState(element.id, stateScope),
         isSelected: !!appState.selectedElementIds[element.id],
+        selectedElementCount,
         isHovered: !!appState.hoveredElementIds[element.id],
         isActive: runtime.isOpen(element.id, overlay.id),
         isInViewport,
@@ -491,20 +503,25 @@ export const CustomElementOverlayLayer = ({
           runtime.patchState(element.id, stateScope, patch),
       };
     },
-    [api, appState, assets, runtime],
+    [api, appState, assets, runtime, selectedElementCount],
   );
 
   useEffect(() => {
-    const elementIds = new Set(elements.map((element) => element.id));
+    const currentElementsMap = elementsMapRef.current;
+    const elementIds = new Set(currentElementsMap.keys());
     runtime.prune(elementIds);
-    const overlaysByElementId = new Map(
-      elements
-        .filter(isCustomElement)
-        .map((element) => [
+    const overlaysByElementId = new Map<
+      string,
+      readonly CustomElementOverlayDefinition<any, any>[]
+    >();
+    for (const element of currentElementsMap.values()) {
+      if (isCustomElement(element)) {
+        overlaysByElementId.set(
           element.id,
           getCustomElementOverlays(element.customType),
-        ]),
-    );
+        );
+      }
+    }
     runtime.pruneOverlays(
       (elementId, overlayId) =>
         overlaysByElementId
@@ -523,7 +540,7 @@ export const CustomElementOverlayLayer = ({
         initializedOverlays.current.delete(key);
       }
     }
-  }, [elements, registryRevision, runtime]);
+  }, [elementCollectionRevision, registryRevision, runtime]);
 
   const desiredItems = useMemo(() => {
     const next: DesiredOverlayItem[] = [];
@@ -585,6 +602,9 @@ export const CustomElementOverlayLayer = ({
   ]);
 
   useEffect(() => {
+    if (!desiredItems.length && !presentItemsRef.current.size) {
+      return;
+    }
     const desiredByKey = new Map(desiredItems.map((item) => [item.key, item]));
     const next = new Map(presentItemsRef.current);
     const reducedMotion = getReducedMotion();

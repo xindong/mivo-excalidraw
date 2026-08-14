@@ -2657,8 +2657,10 @@ class App extends React.Component<AppProps, AppState> {
                             onDoubleClick={this.handleCanvasDoubleClick}
                           />
                           <CustomElementOverlayLayer
-                            elements={this.scene.getNonDeletedElements()}
                             elementsMap={allElementsMap}
+                            elementCollectionRevision={
+                              this.scene.getNonDeletedElementCollectionRevision()
+                            }
                             visibleElements={visibleElements}
                             appState={this.state}
                             api={this.api}

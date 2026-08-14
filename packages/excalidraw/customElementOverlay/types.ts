@@ -62,6 +62,7 @@ export type CustomElementOverlayVisibilityContext<
   runtime: CustomElementOverlayController;
   state: TState | undefined;
   isSelected: boolean;
+  selectedElementCount: number;
   isHovered: boolean;
   isActive: boolean;
   isInViewport: boolean;

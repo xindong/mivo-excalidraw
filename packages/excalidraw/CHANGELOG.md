@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.21
+
+### Mivo fork performance
+
+- Avoided full-scene Overlay runtime pruning after content, geometry, and text edits by tracking the non-deleted element collection separately. Empty Overlay updates now return without committing state, and Overlay visibility callbacks share a single selection count per render.
+
 ## 0.18.1-mivo.20
 
 ### Mivo fork performance

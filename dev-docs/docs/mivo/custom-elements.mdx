@@ -180,6 +180,8 @@ Overlays may share state by declaring the same `stateScope`:
 
 The controller and render context provide `open`, `close`, `toggle`, `setState`, `patchState`, and `closeAfter`. `closeAfter` is generation-aware: reopening an overlay makes an older delayed close stale.
 
+Visibility and render contexts expose `isSelected`, `selectedElementCount`, `isHovered`, `isActive`, and `isInViewport`. Use `selectedElementCount` for single-selection UI instead of recounting `appState.selectedElementIds` in every overlay visibility callback.
+
 Overlay state is transient. To persist a value in the scene:
 
 ```ts
