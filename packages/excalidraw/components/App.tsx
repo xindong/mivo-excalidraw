@@ -2670,6 +2670,7 @@ class App extends React.Component<AppProps, AppState> {
                           <CustomElementLifecycleLayer
                             elements={this.scene.getNonDeletedElements()}
                             visibleElements={visibleElements}
+                            changedElementIds={this.scene.getChangedElementIds()}
                             appState={this.state}
                             api={this.api}
                             assets={this.props.customElementAssets ?? null}
@@ -4177,7 +4178,11 @@ class App extends React.Component<AppProps, AppState> {
       this.setState({ scrolledOutside });
     }
 
-    this.store.commit(elementsMap, this.state);
+    this.store.commit(
+      elementsMap,
+      this.state,
+      this.scene.consumeChangedElementIds(),
+    );
 
     // Do not notify consumers if we're still loading the scene. Among other
     // potential issues, this fixes a case where the tab isn't focused during

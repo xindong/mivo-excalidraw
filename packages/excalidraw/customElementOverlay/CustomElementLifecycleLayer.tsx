@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { isCustomElement } from "@excalidraw/element";
+import { deepCopyElement, isCustomElement } from "@excalidraw/element";
 
 import type {
   CustomElementAssetStore,
@@ -31,6 +31,19 @@ type ElementState = Readonly<{
   registration: LifecycleRegistration;
   selected: boolean;
   inViewport: boolean;
+}>;
+
+type LifecycleElementSnapshot = Readonly<{
+  element: TypedExcalidrawCustomElement<any>;
+  customType: string;
+  schemaVersion: number;
+  rendererId: string;
+  rendererVersion: number;
+  status: TypedExcalidrawCustomElement<any>["status"];
+  data: TypedExcalidrawCustomElement<any>["data"];
+  resource: TypedExcalidrawCustomElement<any>["resource"];
+  previewFileId: TypedExcalidrawCustomElement<any>["previewFileId"];
+  customData: TypedExcalidrawCustomElement<any>["customData"];
 }>;
 
 const useRegistryRevision = () => {
@@ -71,7 +84,7 @@ const invokeLifecycle = (
 };
 
 const hasCustomLifecycleUpdate = (
-  previous: TypedExcalidrawCustomElement<any>,
+  previous: LifecycleElementSnapshot,
   current: TypedExcalidrawCustomElement<any>,
 ) =>
   previous.customType !== current.customType ||
@@ -84,6 +97,38 @@ const hasCustomLifecycleUpdate = (
   previous.previewFileId !== current.previewFileId ||
   previous.customData !== current.customData;
 
+const snapshotLifecycleElement = (
+  element: TypedExcalidrawCustomElement<any>,
+): LifecycleElementSnapshot => ({
+  element: deepCopyElement(element),
+  customType: element.customType,
+  schemaVersion: element.schemaVersion,
+  rendererId: element.rendererId,
+  rendererVersion: element.rendererVersion,
+  status: element.status,
+  data: element.data,
+  resource: element.resource,
+  previewFileId: element.previewFileId,
+  customData: element.customData,
+});
+
+const addSymmetricDifference = (
+  target: Set<string>,
+  previous: ReadonlySet<string>,
+  current: ReadonlySet<string>,
+) => {
+  for (const id of previous) {
+    if (!current.has(id)) {
+      target.add(id);
+    }
+  }
+  for (const id of current) {
+    if (!previous.has(id)) {
+      target.add(id);
+    }
+  }
+};
+
 export const CustomElementLifecycleLayer = ({
   elements,
   visibleElements,
@@ -91,6 +136,7 @@ export const CustomElementLifecycleLayer = ({
   api,
   assets,
   runtime,
+  changedElementIds,
 }: {
   elements: readonly NonDeletedExcalidrawElement[];
   visibleElements: readonly NonDeletedExcalidrawElement[];
@@ -98,13 +144,27 @@ export const CustomElementLifecycleLayer = ({
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
   runtime: CustomElementOverlayRuntime;
+  changedElementIds?: ReadonlySet<string>;
 }) => {
   const registryRevision = useRegistryRevision();
   const [abortController, setAbortController] = useState(
     () => new AbortController(),
   );
   const elementSets = useRef(new Map<string, ElementSet>());
+  const elementSnapshots = useRef(new Map<string, LifecycleElementSnapshot>());
   const elementStates = useRef(new Map<string, ElementState>());
+  const contentRegistryRevision = useRef<number | null>(null);
+  const stateRegistryRevision = useRef<number | null>(null);
+  const previousSelectedIds = useRef<ReadonlySet<string>>(new Set());
+  const previousVisibleIds = useRef<ReadonlySet<string>>(new Set());
+  const elementsMap = useMemo(
+    () => new Map(elements.map((element) => [element.id, element])),
+    [elements],
+  );
+  const contentDirtyIds = useMemo(
+    () => changedElementIds ?? new Set(elements.map((element) => element.id)),
+    [changedElementIds, elements],
+  );
   const visibleElementIds = useMemo(
     () => new Set(visibleElements.map((element) => element.id)),
     [visibleElements],
@@ -131,104 +191,174 @@ export const CustomElementLifecycleLayer = ({
   }, [abortController, api]);
 
   useEffect(() => {
-    const nextSets = new Map<string, ElementSet>();
-    for (const element of elements) {
-      if (!isCustomElement(element)) {
-        continue;
-      }
-      const registration = getCustomElementLifecycleRegistration(
-        element.customType,
+    const registryChanged =
+      contentRegistryRevision.current !== registryRevision;
+    contentRegistryRevision.current = registryRevision;
+    const dirtyIds = registryChanged
+      ? new Set([...elementSnapshots.current.keys(), ...elementsMap.keys()])
+      : contentDirtyIds;
+    const changes: Array<{
+      customType: string;
+      registration: LifecycleRegistration;
+      added: TypedExcalidrawCustomElement<any>[];
+      updated: Array<{
+        previous: TypedExcalidrawCustomElement<any>;
+        current: TypedExcalidrawCustomElement<any>;
+      }>;
+      removed: TypedExcalidrawCustomElement<any>[];
+    }> = [];
+    const getChanges = (
+      customType: string,
+      registration: LifecycleRegistration,
+    ) => {
+      let entry = changes.find(
+        (change) =>
+          change.customType === customType &&
+          change.registration === registration,
       );
-      if (!registration?.lifecycle.onElementsChange) {
-        continue;
-      }
-      let entry = nextSets.get(element.customType);
       if (!entry) {
-        entry = { registration, elements: new Map() };
-        nextSets.set(element.customType, entry);
+        entry = {
+          customType,
+          registration,
+          added: [],
+          updated: [],
+          removed: [],
+        };
+        changes.push(entry);
       }
-      entry.elements.set(element.id, element);
-    }
-
+      return entry;
+    };
     const baseContext = {
       appState,
       api,
       assets,
       signal: abortController.signal,
     };
-    for (const [customType, previousSet] of elementSets.current) {
-      const nextSet = nextSets.get(customType);
-      if (nextSet?.registration === previousSet.registration) {
+    for (const elementId of dirtyIds) {
+      const previous = elementSnapshots.current.get(elementId);
+      const currentElement = elementsMap.get(elementId);
+      const current =
+        currentElement && isCustomElement(currentElement)
+          ? currentElement
+          : null;
+      const previousSet = previous
+        ? elementSets.current.get(previous.customType)
+        : undefined;
+      const previousRegistration = previousSet?.registration;
+      const currentRegistration = current
+        ? getCustomElementLifecycleRegistration(current.customType)
+        : null;
+
+      if (
+        previous &&
+        previousRegistration?.lifecycle.onElementsChange &&
+        (!current ||
+          current.customType !== previous.customType ||
+          currentRegistration !== previousRegistration)
+      ) {
+        previousSet?.elements.delete(elementId);
+        getChanges(previous.customType, previousRegistration).removed.push(
+          previous.element,
+        );
+      }
+
+      if (current && currentRegistration?.lifecycle.onElementsChange) {
+        let currentSet = elementSets.current.get(current.customType);
+        if (!currentSet || currentSet.registration !== currentRegistration) {
+          currentSet = {
+            registration: currentRegistration,
+            elements: new Map(),
+          };
+          elementSets.current.set(current.customType, currentSet);
+        }
+        currentSet.elements.set(elementId, current);
+        const currentChanges = getChanges(
+          current.customType,
+          currentRegistration,
+        );
+        if (
+          !previous ||
+          previous.customType !== current.customType ||
+          previousRegistration !== currentRegistration
+        ) {
+          currentChanges.added.push(current);
+        } else if (hasCustomLifecycleUpdate(previous, current)) {
+          currentChanges.updated.push({ previous: previous.element, current });
+        }
+      }
+
+      if (current) {
+        elementSnapshots.current.set(
+          elementId,
+          snapshotLifecycleElement(current),
+        );
+      } else {
+        elementSnapshots.current.delete(elementId);
+        elementStates.current.delete(elementId);
+      }
+    }
+
+    for (const change of changes) {
+      const { customType } = change;
+      if (
+        !change.added.length &&
+        !change.updated.length &&
+        !change.removed.length
+      ) {
         continue;
       }
+      const currentSet = elementSets.current.get(customType);
       invokeLifecycle(
         "elements",
         () =>
-          previousSet.registration.lifecycle.onElementsChange?.({
+          change.registration.lifecycle.onElementsChange?.({
             ...baseContext,
             customType,
-            elements: [],
-            added: [],
-            updated: [],
-            removed: [...previousSet.elements.values()],
+            elements:
+              currentSet?.registration === change.registration
+                ? [...currentSet.elements.values()]
+                : [],
+            added: change.added,
+            updated: change.updated,
+            removed: change.removed,
           }),
         abortController.signal,
       );
     }
-
-    for (const [customType, nextSet] of nextSets) {
-      const previousSet = elementSets.current.get(customType);
-      const sameRegistration =
-        previousSet?.registration === nextSet.registration;
-      const previousElements =
-        sameRegistration && previousSet
-          ? previousSet.elements
-          : new Map<string, TypedExcalidrawCustomElement<any>>();
-      const added: TypedExcalidrawCustomElement<any>[] = [];
-      const updated: Array<{
-        previous: TypedExcalidrawCustomElement<any>;
-        current: TypedExcalidrawCustomElement<any>;
-      }> = [];
-      const removed: TypedExcalidrawCustomElement<any>[] = [];
-
-      for (const element of nextSet.elements.values()) {
-        const previous = previousElements.get(element.id);
-        if (!previous) {
-          added.push(element);
-        } else if (hasCustomLifecycleUpdate(previous, element)) {
-          updated.push({ previous, current: element });
-        }
-      }
-      for (const element of previousElements.values()) {
-        if (!nextSet.elements.has(element.id)) {
-          removed.push(element);
-        }
-      }
-      if (!added.length && !updated.length && !removed.length) {
-        continue;
-      }
-
-      invokeLifecycle(
-        "elements",
-        () =>
-          nextSet.registration.lifecycle.onElementsChange?.({
-            ...baseContext,
-            customType,
-            elements: [...nextSet.elements.values()],
-            added,
-            updated,
-            removed,
-          }),
-        abortController.signal,
-      );
-    }
-    elementSets.current = nextSets;
-  }, [abortController, api, appState, assets, elements, registryRevision]);
+  }, [
+    abortController,
+    api,
+    appState,
+    assets,
+    contentDirtyIds,
+    elementsMap,
+    registryRevision,
+  ]);
 
   useEffect(() => {
-    const nextStates = new Map<string, ElementState>();
-    for (const element of elements) {
-      if (!isCustomElement(element)) {
+    const selectedIds = new Set(
+      Object.keys(appState.selectedElementIds).filter(
+        (elementId) => appState.selectedElementIds[elementId],
+      ),
+    );
+    const registryChanged = stateRegistryRevision.current !== registryRevision;
+    stateRegistryRevision.current = registryRevision;
+    const dirtyIds = registryChanged
+      ? new Set(elementsMap.keys())
+      : new Set(contentDirtyIds);
+    addSymmetricDifference(dirtyIds, previousSelectedIds.current, selectedIds);
+    addSymmetricDifference(
+      dirtyIds,
+      previousVisibleIds.current,
+      visibleElementIds,
+    );
+    previousSelectedIds.current = selectedIds;
+    previousVisibleIds.current = visibleElementIds;
+
+    for (const elementId of dirtyIds) {
+      const element = elementsMap.get(elementId);
+      if (!element || !isCustomElement(element)) {
+        elementStates.current.delete(elementId);
         continue;
       }
       const registration = getCustomElementLifecycleRegistration(
@@ -244,7 +374,11 @@ export const CustomElementLifecycleLayer = ({
       const sameRegistration = previous?.registration === registration;
       const previousSelected = sameRegistration ? previous.selected : false;
       const previousInViewport = sameRegistration ? previous.inViewport : false;
-      nextStates.set(element.id, { registration, selected, inViewport });
+      elementStates.current.set(element.id, {
+        registration,
+        selected,
+        inViewport,
+      });
 
       const baseContext: CustomElementLifecycleContext<any> = {
         element,
@@ -279,13 +413,13 @@ export const CustomElementLifecycleLayer = ({
         );
       }
     }
-    elementStates.current = nextStates;
   }, [
     abortController,
     api,
     appState,
     assets,
-    elements,
+    contentDirtyIds,
+    elementsMap,
     registryRevision,
     runtime,
     visibleElementIds,

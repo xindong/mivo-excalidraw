@@ -161,6 +161,12 @@ export class Scene {
    * type/custom type changes. Content and geometry edits leave it untouched.
    */
   private nonDeletedElementCollectionRevision = 0;
+  /**
+   * Element ids changed since the last editor Store commit. Keeping this on
+   * Scene lets history consume the same mutation knowledge the scene already
+   * has, instead of rediscovering it by scanning both complete maps.
+   */
+  private changedElementIds = new Set<string>();
 
   getSceneNonce() {
     return this.sceneNonce;
@@ -168,6 +174,16 @@ export class Scene {
 
   getNonDeletedElementCollectionRevision() {
     return this.nonDeletedElementCollectionRevision;
+  }
+
+  consumeChangedElementIds() {
+    const changedElementIds = this.changedElementIds;
+    this.changedElementIds = new Set();
+    return changedElementIds;
+  }
+
+  getChangedElementIds() {
+    return this.changedElementIds as ReadonlySet<string>;
   }
 
   getNonDeletedElementsMap() {
@@ -302,6 +318,7 @@ export class Scene {
   ) {
     // we do trust the insertion order on the map, though maybe we shouldn't and should prefer order defined by fractional indices
     const _nextElements = toArray(nextElements);
+    const previousElements = this.elements;
     const nextFrameLikes: ExcalidrawFrameLikeElement[] = [];
 
     if (!options?.skipValidation) {
@@ -315,7 +332,17 @@ export class Scene {
         nextFrameLikes.push(element);
       }
       this.elementsMap.set(element.id, element);
+      // Replacement callers may have mutated element objects before handing
+      // the array back to Scene (indices/bindings are common examples), so the
+      // previous live map is not an immutable comparison source. Store filters
+      // these candidates against its own snapshots.
+      this.changedElementIds.add(element.id);
     });
+    for (const previousElement of previousElements) {
+      if (!this.elementsMap.has(previousElement.id)) {
+        this.changedElementIds.add(previousElement.id);
+      }
+    }
     const nonDeletedElements = getNonDeletedElements(
       this.elements,
       this.nonDeletedElements,
@@ -463,13 +490,15 @@ export class Scene {
       options,
     );
 
-    if (
+    const didMutateSceneElement =
       // skip if the element is not in the scene (i.e. selection)
       this.elementsMap.has(element.id) &&
       // skip if the element's version hasn't changed, as mutateElement returned the same element
-      prevVersion !== nextVersion &&
-      options.informMutation
-    ) {
+      prevVersion !== nextVersion;
+    if (didMutateSceneElement) {
+      this.changedElementIds.add(element.id);
+    }
+    if (didMutateSceneElement && options.informMutation) {
       this.triggerUpdate();
     }
 

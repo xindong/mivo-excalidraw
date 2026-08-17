@@ -85,6 +85,7 @@ export class Store {
 
   private scheduledMacroActions: Set<CaptureUpdateActionType> = new Set();
   private scheduledMicroActions: MicroActionsQueue = [];
+  private pendingChangedElementIds = new Set<string>();
 
   private _snapshot = StoreSnapshot.empty();
 
@@ -183,7 +184,13 @@ export class Store {
   public commit(
     elements: SceneElementsMap | undefined,
     appState: AppState | ObservedAppState | undefined,
+    changedElementIds?: ReadonlySet<string>,
   ): void {
+    if (changedElementIds) {
+      for (const elementId of changedElementIds) {
+        this.pendingChangedElementIds.add(elementId);
+      }
+    }
     // execute all scheduled micro actions first
     // similar to microTasks, there can be many
     this.flushMicroActions();
@@ -192,7 +199,15 @@ export class Store {
       // execute a single scheduled "macro" function
       // similar to macro tasks, there can be only one within a single commit (loop)
       const action = this.getScheduledMacroAction();
-      this.processAction({ action, elements, appState });
+      this.processAction({
+        action,
+        elements,
+        appState,
+        changedElementIds:
+          changedElementIds === undefined
+            ? undefined
+            : this.pendingChangedElementIds,
+      });
     } finally {
       this.satisfiesScheduledActionsInvariant();
       // defensively reset all scheduled "macro" actions, possibly cleans up other runtime garbage
@@ -206,6 +221,7 @@ export class Store {
   public clear(): void {
     this.snapshot = StoreSnapshot.empty();
     this.scheduledMacroActions = new Set();
+    this.pendingChangedElementIds.clear();
   }
 
   /**
@@ -320,6 +336,7 @@ export class Store {
           action: CaptureUpdateActionType;
           elements: SceneElementsMap | undefined;
           appState: AppState | ObservedAppState | undefined;
+          changedElementIds?: ReadonlySet<string>;
         }
       | {
           action: CaptureUpdateActionType;
@@ -335,6 +352,19 @@ export class Store {
     if (
       action === CaptureUpdateAction.EVENTUALLY &&
       !this.onStoreIncrementEmitter.subscribers.length
+    ) {
+      return;
+    }
+
+    if (
+      "elements" in params &&
+      params.changedElementIds !== undefined &&
+      this.processIncrementalAction({
+        action: params.action,
+        elements: params.elements,
+        appState: params.appState,
+        changedElementIds: params.changedElementIds,
+      })
     ) {
       return;
     }
@@ -383,6 +413,101 @@ export class Store {
           break;
       }
     }
+  }
+
+  /**
+   * Fast path for Scene-backed commits. Scene already knows the ids it
+   * mutated, so update the Store's immutable element values in a stable Map
+   * and calculate deltas from only those ids.
+   */
+  private processIncrementalAction(params: {
+    action: CaptureUpdateActionType;
+    elements: SceneElementsMap | undefined;
+    appState: AppState | ObservedAppState | undefined;
+    changedElementIds: ReadonlySet<string>;
+  }): boolean {
+    const { action, elements, appState, changedElementIds } = params;
+    const prevSnapshot = this.snapshot;
+    const prevChangedElements = new Map() as SceneElementsMap;
+    const nextChangedElements = new Map() as SceneElementsMap;
+    const changedElements: Record<string, OrderedExcalidrawElement> = {};
+
+    if (elements) {
+      for (const elementId of changedElementIds) {
+        const previousElement = prevSnapshot.elements.get(elementId);
+        const liveElement = elements.get(elementId);
+
+        if (
+          previousElement &&
+          liveElement &&
+          previousElement.version >= liveElement.version
+        ) {
+          continue;
+        }
+
+        if (previousElement) {
+          prevChangedElements.set(elementId, previousElement);
+        }
+
+        const nextElement = liveElement
+          ? deepCopyElement(liveElement)
+          : previousElement
+          ? newElementWith(previousElement, { isDeleted: true })
+          : null;
+        if (!nextElement) {
+          continue;
+        }
+        nextChangedElements.set(elementId, nextElement);
+        changedElements[elementId] = nextElement;
+      }
+    }
+
+    const nextAppState = appState
+      ? isObservedAppState(appState)
+        ? appState
+        : getObservedAppState(appState)
+      : prevSnapshot.appState;
+    const elementsDelta = ElementsDelta.calculate(
+      prevChangedElements,
+      nextChangedElements,
+    );
+    const appStateDelta = AppStateDelta.calculate(
+      prevSnapshot.appState,
+      nextAppState,
+    );
+
+    if (elementsDelta.isEmpty() && appStateDelta.isEmpty()) {
+      if (action !== CaptureUpdateAction.EVENTUALLY) {
+        this.pendingChangedElementIds.clear();
+      }
+      return true;
+    }
+
+    const change = StoreChange.createIncremental(
+      changedElements,
+      prevSnapshot.appState,
+      nextAppState,
+    );
+    if (action === CaptureUpdateAction.IMMEDIATELY) {
+      const delta = StoreDelta.create(elementsDelta, appStateDelta);
+      this.emitDurableIncrement(prevSnapshot, change, delta);
+    } else {
+      this.emitEphemeralIncrement(prevSnapshot, change);
+    }
+
+    if (action !== CaptureUpdateAction.EVENTUALLY) {
+      const stableElements = prevSnapshot.elements;
+      for (const [elementId, nextElement] of nextChangedElements) {
+        stableElements.set(elementId, nextElement);
+      }
+      this.snapshot = StoreSnapshot.create(stableElements, nextAppState, {
+        didElementsChange: !elementsDelta.isEmpty(),
+        didAppStateChange: !appStateDelta.isEmpty(),
+      });
+      this.pendingChangedElementIds.clear();
+    }
+
+    return true;
   }
 
   /**
@@ -444,6 +569,24 @@ export class StoreChange {
     const changedElements = nextSnapshot.getChangedElements(prevSnapshot);
     const changedAppState = nextSnapshot.getChangedAppState(prevSnapshot);
 
+    return new StoreChange(changedElements, changedAppState);
+  }
+
+  public static createIncremental(
+    changedElements: Record<string, OrderedExcalidrawElement>,
+    prevAppState: ObservedAppState,
+    nextAppState: ObservedAppState,
+  ) {
+    const changedAppState = Delta.getRightDifferences(
+      prevAppState,
+      nextAppState,
+    ).reduce(
+      (acc, key) =>
+        Object.assign(acc, {
+          [key]: nextAppState[key as keyof ObservedAppState],
+        }),
+      {} as Partial<ObservedAppState>,
+    );
     return new StoreChange(changedElements, changedAppState);
   }
 }

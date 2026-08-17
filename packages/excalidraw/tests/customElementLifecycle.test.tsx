@@ -13,6 +13,60 @@ import { CustomElementOverlayRuntime } from "../customElementOverlay/runtime";
 import type { AppState, ExcalidrawImperativeAPI } from "../types";
 
 describe("CustomElementLifecycleLayer", () => {
+  it("ignores geometry-only dirty elements and publishes data updates incrementally", async () => {
+    const onElementsChange = vi.fn();
+    const unregister = registerCustomElementExtension(
+      defineCustomElementExtension({
+        definition: {
+          type: "test.lifecycle.incremental",
+          schemaVersion: 1,
+        },
+        lifecycle: { onElementsChange },
+      }),
+    );
+    const element = customElement("test.lifecycle.incremental");
+    const api = {
+      onEvent: vi.fn(() => () => {}),
+    } as unknown as ExcalidrawImperativeAPI;
+    const runtime = new CustomElementOverlayRuntime();
+    const view = (changedElementIds: ReadonlySet<string>) => (
+      <CustomElementLifecycleLayer
+        elements={[element]}
+        visibleElements={[element]}
+        changedElementIds={changedElementIds}
+        appState={{ selectedElementIds: {} } as AppState}
+        api={api}
+        assets={null}
+        runtime={runtime}
+      />
+    );
+
+    try {
+      const rendered = render(view(new Set([element.id])));
+      await waitFor(() => expect(onElementsChange).toHaveBeenCalledTimes(1));
+      expect(onElementsChange.mock.calls[0][0]).toMatchObject({
+        added: [element],
+        updated: [],
+        removed: [],
+      });
+
+      Object.assign(element, { x: 20, version: 2 });
+      rendered.rerender(view(new Set([element.id])));
+      await act(async () => {});
+      expect(onElementsChange).toHaveBeenCalledTimes(1);
+
+      const previousData = element.data;
+      Object.assign(element, { data: { label: "updated" }, version: 3 });
+      rendered.rerender(view(new Set([element.id])));
+      await waitFor(() => expect(onElementsChange).toHaveBeenCalledTimes(2));
+      const update = onElementsChange.mock.calls[1][0].updated[0];
+      expect(update.previous.data).toEqual(previousData);
+      expect(update.current).toBe(element);
+    } finally {
+      act(() => unregister());
+    }
+  });
+
   it("renews its lifecycle signal after a StrictMode editor remount", async () => {
     const onElementsChange = vi.fn();
     const onSelectionChange = vi.fn();
@@ -77,11 +131,11 @@ describe("CustomElementLifecycleLayer", () => {
   });
 });
 
-const customElement = () =>
+const customElement = (customType = "test.lifecycle") =>
   ({
     id: "lifecycle-element",
     type: "custom",
-    customType: "test.lifecycle",
+    customType,
     schemaVersion: 1,
     rendererId: "test.lifecycle.renderer",
     rendererVersion: 1,
@@ -90,4 +144,7 @@ const customElement = () =>
     resource: null,
     previewFileId: null,
     isDeleted: false,
+    x: 0,
+    y: 0,
+    version: 1,
   } as unknown as NonDeletedExcalidrawElement);
