@@ -13,6 +13,12 @@ Please add the latest change on the top under the correct section.
 
 ## Unreleased
 
+## 0.18.1-mivo.24
+
+### Fixes
+
+- Bind the overscroll pointer handler to the editor instance, preventing `this.state` errors when the pointer leaves the canvas.
+
 ## 0.18.1-mivo.22
 
 ### Mivo fork features

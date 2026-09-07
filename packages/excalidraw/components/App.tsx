@@ -2293,7 +2293,7 @@ class App extends React.Component<AppProps, AppState> {
     });
   };
 
-  private toggleOverscrollBehavior(event: React.PointerEvent) {
+  private toggleOverscrollBehavior = (event: React.PointerEvent) => {
     // when pointer inside editor, disable overscroll behavior to prevent
     // panning to trigger history back/forward on MacOS Chrome
     document.documentElement.style.overscrollBehaviorX =
@@ -2304,7 +2304,7 @@ class App extends React.Component<AppProps, AppState> {
     ) {
       this.setState({ hoveredElementIds: {} });
     }
-  }
+  };
 
   public render() {
     const selectedElements = this.scene.getSelectedElements(this.state);
