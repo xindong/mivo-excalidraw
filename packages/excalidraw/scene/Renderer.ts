@@ -258,9 +258,6 @@ export class Renderer {
         canvasNonce,
       };
     }
-    const canvasNonce = `${this.scene.getSceneNonce()}${
-      newElement?.frameId ? `:${newElement.versionNonce}` : ""
-    }`;
 
     const ret = this._getRenderableElements({
       canvasNonce,
