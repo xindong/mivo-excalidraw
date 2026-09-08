@@ -9,6 +9,7 @@ import { arrayToMap, memoize, toBrandedType } from "@excalidraw/common";
 import type {
   ExcalidrawElement,
   ExcalidrawFrameLikeElement,
+  ExcalidrawNonSelectionElement,
   NonDeleted,
   NonDeletedElementsMap,
   NonDeletedExcalidrawElement,
@@ -25,7 +26,7 @@ import type { AppState } from "../types";
 type ViewportProjection = {
   elementsMap: RenderableElementsMap;
   visibleElements: readonly NonDeletedExcalidrawElement[];
-  newElementCanvasElement: NonDeletedExcalidrawElement | null;
+  newElementCanvasElement: NonDeleted<ExcalidrawNonSelectionElement> | null;
   canvasNonce: string;
 };
 
