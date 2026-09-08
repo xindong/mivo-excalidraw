@@ -205,8 +205,42 @@ export class Renderer {
     },
   );
 
+  // During a drag, Excalidraw mutates the selected element and bumps the
+  // scene nonce on every pointermove. Rebuilding the viewport list then scans
+  // every scene element each frame although all non-selected nodes are stable.
+  // Keep the latest viewport projection for the duration of a drag; elements
+  // are mutable, so the dragged node's cached reference follows its position.
+  private dragViewportProjection: {
+    zoom: AppState["zoom"];
+    offsetLeft: number;
+    offsetTop: number;
+    scrollX: number;
+    scrollY: number;
+    height: number;
+    width: number;
+    editingTextElement: AppState["editingTextElement"];
+    newElement: AppState["newElement"];
+    ret: ReturnType<typeof this._getRenderableElements>;
+  } | null = null;
+
   public getRenderableElements = (opts: GetRenderableElementsOpts) => {
     const { newElement } = opts;
+    const projection = this.dragViewportProjection;
+    if (
+      opts.selectedElementsAreBeingDragged &&
+      projection &&
+      projection.zoom === opts.zoom &&
+      projection.offsetLeft === opts.offsetLeft &&
+      projection.offsetTop === opts.offsetTop &&
+      projection.scrollX === opts.scrollX &&
+      projection.scrollY === opts.scrollY &&
+      projection.height === opts.height &&
+      projection.width === opts.width &&
+      projection.editingTextElement === opts.editingTextElement &&
+      projection.newElement === opts.newElement
+    ) {
+      return projection.ret;
+    }
     const canvasNonce = `${this.scene.getSceneNonce()}${
       newElement?.frameId ? `:${newElement.versionNonce}` : ""
     }`;
@@ -226,6 +260,19 @@ export class Renderer {
       editingTextElement: opts.editingTextElement,
       newElement: opts.newElement,
     });
+
+    this.dragViewportProjection = {
+      zoom: opts.zoom,
+      offsetLeft: opts.offsetLeft,
+      offsetTop: opts.offsetTop,
+      scrollX: opts.scrollX,
+      scrollY: opts.scrollY,
+      height: opts.height,
+      width: opts.width,
+      editingTextElement: opts.editingTextElement,
+      newElement: opts.newElement,
+      ret,
+    };
 
     // if we're dragging elements over a frame, reorder the selected elements
     // inside the frame during render (we don't set the `element.frameId` until
@@ -258,5 +305,6 @@ export class Renderer {
   public destroy() {
     renderStaticSceneThrottled.cancel();
     this._getRenderableElements.clear();
+    this.dragViewportProjection = null;
   }
 }
