@@ -22,6 +22,13 @@ import type { RenderableElementsMap } from "./types";
 
 import type { AppState } from "../types";
 
+type ViewportProjection = {
+  elementsMap: RenderableElementsMap;
+  visibleElements: readonly NonDeletedExcalidrawElement[];
+  newElementCanvasElement: NonDeletedExcalidrawElement | null;
+  canvasNonce: string;
+};
+
 type GetRenderableElementsOpts = {
   zoom: AppState["zoom"];
   offsetLeft: AppState["offsetLeft"];
@@ -220,7 +227,7 @@ export class Renderer {
     width: number;
     editingTextElement: AppState["editingTextElement"];
     newElement: AppState["newElement"];
-    ret: ReturnType<typeof this._getRenderableElements>;
+    ret: ViewportProjection;
   } | null = null;
 
   public getRenderableElements = (opts: GetRenderableElementsOpts) => {
