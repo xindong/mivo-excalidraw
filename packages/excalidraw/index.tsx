@@ -382,6 +382,7 @@ export {
   hashElementsVersion,
   hashString,
   getNonDeletedElements,
+  getCustomElementCanvasCacheStats,
 } from "@excalidraw/element";
 
 export { getTextFromElements } from "@excalidraw/element";

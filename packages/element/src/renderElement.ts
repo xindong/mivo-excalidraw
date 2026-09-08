@@ -707,6 +707,54 @@ export const elementWithCanvasCache = new WeakMap<
   ExcalidrawElementWithCanvas
 >();
 
+export type CustomElementCanvasCacheStats = Readonly<{
+  /** Number of live Custom Element offscreen canvas entries. */
+  entries: number;
+  /** Exact allocated canvas backing-store dimensions summed as pixels. */
+  pixels: number;
+  /** RGBA backing-store bytes derived from the live canvas dimensions. */
+  rgbaBytes: number;
+  /** Number of canvas regenerations since this editor runtime loaded. */
+  generations: number;
+}>;
+
+type CustomElementCanvasCacheEntry = Readonly<{
+  width: number;
+  height: number;
+}>;
+
+// WeakMap is deliberately used for rendering lifetime, but it cannot be
+// enumerated. Keep this small mirror only for explicit cache diagnostics.
+const customElementCanvasCacheEntries = new Map<
+  string,
+  CustomElementCanvasCacheEntry
+>();
+let customElementCanvasCacheGenerations = 0;
+
+export const getCustomElementCanvasCacheStats = (): CustomElementCanvasCacheStats => {
+  let pixels = 0;
+  for (const entry of customElementCanvasCacheEntries.values()) {
+    pixels += entry.width * entry.height;
+  }
+  return {
+    entries: customElementCanvasCacheEntries.size,
+    pixels,
+    rgbaBytes: pixels * 4,
+    generations: customElementCanvasCacheGenerations,
+  };
+};
+
+export const removeCustomElementCanvasCacheStats = (element: ExcalidrawElement) => {
+  if (element.type === "custom") {
+    customElementCanvasCacheEntries.delete(element.id);
+  }
+};
+
+export const resetCustomElementCanvasCacheStats = () => {
+  customElementCanvasCacheEntries.clear();
+  customElementCanvasCacheGenerations = 0;
+};
+
 const generateElementWithCanvas = (
   element: NonDeletedExcalidrawElement,
   elementsMap: NonDeletedSceneElementsMap,
@@ -771,6 +819,13 @@ const generateElementWithCanvas = (
     }
 
     elementWithCanvasCache.set(element, elementWithCanvas);
+    if (element.type === "custom") {
+      customElementCanvasCacheEntries.set(element.id, {
+        width: elementWithCanvas.canvas.width,
+        height: elementWithCanvas.canvas.height,
+      });
+      customElementCanvasCacheGenerations += 1;
+    }
 
     return elementWithCanvas;
   }
