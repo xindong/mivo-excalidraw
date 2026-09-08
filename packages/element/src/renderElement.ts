@@ -721,6 +721,11 @@ export type CustomElementCanvasCacheStats = Readonly<{
 type CustomElementCanvasCacheEntry = Readonly<{
   width: number;
   height: number;
+  customType: string;
+}>;
+
+export type CustomElementCanvasCacheStatsOptions = Readonly<{
+  customType?: string;
 }>;
 
 // WeakMap is deliberately used for rendering lifetime, but it cannot be
@@ -731,13 +736,20 @@ const customElementCanvasCacheEntries = new Map<
 >();
 let customElementCanvasCacheGenerations = 0;
 
-export const getCustomElementCanvasCacheStats = (): CustomElementCanvasCacheStats => {
+export const getCustomElementCanvasCacheStats = (
+  options: CustomElementCanvasCacheStatsOptions = {},
+): CustomElementCanvasCacheStats => {
+  let entries = 0;
   let pixels = 0;
   for (const entry of customElementCanvasCacheEntries.values()) {
+    if (options.customType && entry.customType !== options.customType) {
+      continue;
+    }
+    entries += 1;
     pixels += entry.width * entry.height;
   }
   return {
-    entries: customElementCanvasCacheEntries.size,
+    entries,
     pixels,
     rgbaBytes: pixels * 4,
     generations: customElementCanvasCacheGenerations,
@@ -823,6 +835,7 @@ const generateElementWithCanvas = (
       customElementCanvasCacheEntries.set(element.id, {
         width: elementWithCanvas.canvas.width,
         height: elementWithCanvas.canvas.height,
+        customType: element.customType,
       });
       customElementCanvasCacheGenerations += 1;
     }
