@@ -234,6 +234,10 @@ export class Renderer {
   public getRenderableElements = (opts: GetRenderableElementsOpts) => {
     const { newElement } = opts;
     const projection = this.dragViewportProjection;
+    const canvasNonce = `${this.scene.getSceneNonce()}${
+      newElement?.frameId ? `:${newElement.versionNonce}` : ""
+    }`;
+
     if (
       opts.selectedElementsAreBeingDragged &&
       projection &&
@@ -247,7 +251,12 @@ export class Renderer {
       projection.editingTextElement === opts.editingTextElement &&
       projection.newElement === opts.newElement
     ) {
-      return projection.ret;
+      // 拖动时必须暴露最新的 canvasNonce 给 StaticCanvas，否则其 React.memo
+      // 会认为场景未变而跳过重绘，导致拖动中的节点在静态主画布上不更新位置。
+      return {
+        ...projection.ret,
+        canvasNonce,
+      };
     }
     const canvasNonce = `${this.scene.getSceneNonce()}${
       newElement?.frameId ? `:${newElement.versionNonce}` : ""
