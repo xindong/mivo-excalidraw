@@ -20,10 +20,10 @@ import type { RoughCanvas } from "roughjs/bin/canvas";
 type StaticCanvasProps = {
   canvas: HTMLCanvasElement;
   rc: RoughCanvas;
-  elementsMap: RenderableElementsMap;
+  staticElementsMap: RenderableElementsMap;
   allElementsMap: NonDeletedSceneElementsMap;
-  visibleElements: readonly NonDeletedExcalidrawElement[];
-  canvasNonce: string;
+  staticVisibleElements: readonly NonDeletedExcalidrawElement[];
+  staticCanvasNonce: string;
   selectionNonce: number | undefined;
   viewportSnapshotEnabled: boolean;
   scale: number;
@@ -65,11 +65,11 @@ const StaticCanvas = (props: StaticCanvasProps) => {
         canvas,
         rc: props.rc,
         scale: props.scale,
-        elementsMap: props.elementsMap,
+        elementsMap: props.staticElementsMap,
         allElementsMap: props.allElementsMap,
-        visibleElements: props.visibleElements,
+        visibleElements: props.staticVisibleElements,
         viewportSnapshotKey: props.viewportSnapshotEnabled
-          ? `${props.canvasNonce}:${props.selectionNonce ?? ""}:${
+          ? `${props.staticCanvasNonce}:${props.selectionNonce ?? ""}:${
               props.appState.frameToHighlight?.id ?? ""
             }:${selectedElementKey}`
           : undefined,
@@ -83,6 +83,8 @@ const StaticCanvas = (props: StaticCanvasProps) => {
   return <div className="excalidraw__canvas-wrapper" ref={wrapperRef} />;
 };
 
+const EMPTY_HOVERED_ELEMENT_IDS: AppState["hoveredElementIds"] = {};
+
 const getRelevantAppStateProps = (appState: AppState): StaticCanvasAppState => {
   const relevantAppStateProps = {
     zoom: appState.zoom,
@@ -92,7 +94,6 @@ const getRelevantAppStateProps = (appState: AppState): StaticCanvasAppState => {
     height: appState.height,
     viewModeEnabled: appState.viewModeEnabled,
     openDialog: appState.openDialog,
-    hoveredElementIds: appState.hoveredElementIds,
     offsetLeft: appState.offsetLeft,
     offsetTop: appState.offsetTop,
     theme: appState.theme,
@@ -107,6 +108,10 @@ const getRelevantAppStateProps = (appState: AppState): StaticCanvasAppState => {
     frameToHighlight: appState.frameToHighlight,
     editingGroupId: appState.editingGroupId,
     currentHoveredFontFamily: appState.currentHoveredFontFamily,
+    hoveredElementIds:
+      appState.openDialog?.name === "elementLinkSelector"
+        ? appState.hoveredElementIds
+        : EMPTY_HOVERED_ELEMENT_IDS,
     croppingElementId: appState.croppingElementId,
     suggestedBinding: appState.suggestedBinding,
   };
@@ -119,14 +124,11 @@ const areEqual = (
   nextProps: StaticCanvasProps,
 ) => {
   if (
-    prevProps.canvasNonce !== nextProps.canvasNonce ||
+    prevProps.staticCanvasNonce !== nextProps.staticCanvasNonce ||
     prevProps.viewportSnapshotEnabled !== nextProps.viewportSnapshotEnabled ||
     prevProps.scale !== nextProps.scale ||
-    // we need to memoize on elementsMap because they may have renewed
-    // even if canvasNonce didn't change (e.g. we filter elements out based
-    // on appState)
-    prevProps.elementsMap !== nextProps.elementsMap ||
-    prevProps.visibleElements !== nextProps.visibleElements
+    prevProps.staticElementsMap !== nextProps.staticElementsMap ||
+    prevProps.staticVisibleElements !== nextProps.staticVisibleElements
   ) {
     return false;
   }

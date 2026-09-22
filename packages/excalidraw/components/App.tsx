@@ -456,7 +456,9 @@ import { AnimationController } from "../renderer/animation";
 import {
   CUSTOM_ELEMENT_OVERLAY_ITEM_CLASS,
   CustomElementOverlayLayer,
+  createCustomElementHoverStore,
 } from "../customElementOverlay/CustomElementOverlayLayer";
+import type { CustomElementHoverStore } from "../customElementOverlay/CustomElementOverlayLayer";
 import { CustomElementLifecycleLayer } from "../customElementOverlay/CustomElementLifecycleLayer";
 import { CustomElementOverlayRuntime } from "../customElementOverlay/runtime";
 
@@ -479,6 +481,7 @@ import { searchItemInFocusAtom } from "./SearchMenu";
 import { isSidebarDockedAtom } from "./Sidebar/Sidebar";
 import { StaticCanvas, InteractiveCanvas } from "./canvases";
 import NewElementCanvas from "./canvases/NewElementCanvas";
+import DragElementsCanvas from "./canvases/DragElementsCanvas";
 import { isPointHittingLink } from "./hyperlink/helpers";
 import { CursorHint, CursorHints } from "./CursorHint";
 import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
@@ -759,6 +762,8 @@ class App extends React.Component<AppProps, AppState> {
 
   public flowchart: AppFlowchart = new AppFlowchart(this);
   public customElementOverlayRuntime = new CustomElementOverlayRuntime();
+  public customElementHoverStore: CustomElementHoverStore =
+    createCustomElementHoverStore();
   private customElementPreviewRevisions = new Map<string, number>();
   private externalCustomElementPreviewLoads = new Map<
     FileId,
@@ -2304,6 +2309,9 @@ class App extends React.Component<AppProps, AppState> {
     ) {
       this.setState({ hoveredElementIds: {} });
     }
+    if (event.type === "pointerleave") {
+      this.customElementHoverStore.setHoveredElement(null);
+    }
   };
 
   public render() {
@@ -2312,8 +2320,12 @@ class App extends React.Component<AppProps, AppState> {
 
     const {
       elementsMap: renderableElementsMap,
+      staticElementsMap,
       visibleElements,
+      staticVisibleElements,
+      draggedElements,
       canvasNonce,
+      staticCanvasNonce,
       /**
        * element to draw on the <NewElementCanvas> for optimization purposes.
        * Can be null even if this.state.newElement defined
@@ -2572,10 +2584,10 @@ class App extends React.Component<AppProps, AppState> {
                           <StaticCanvas
                             canvas={this.canvas}
                             rc={this.rc}
-                            elementsMap={renderableElementsMap}
+                            staticElementsMap={staticElementsMap}
                             allElementsMap={allElementsMap}
-                            visibleElements={visibleElements}
-                            canvasNonce={canvasNonce}
+                            staticVisibleElements={staticVisibleElements}
+                            staticCanvasNonce={staticCanvasNonce}
                             selectionNonce={
                               this.state.selectionElement?.versionNonce
                             }
@@ -2608,6 +2620,30 @@ class App extends React.Component<AppProps, AppState> {
                               rc={this.rc}
                               elementsMap={renderableElementsMap}
                               allElementsMap={allElementsMap}
+                              renderConfig={{
+                                imageCache: this.imageCache,
+                                isExporting: false,
+                                renderGrid: false,
+                                canvasBackgroundColor:
+                                  this.state.viewBackgroundColor,
+                                embedsValidationStatus:
+                                  this.embedsValidationStatus,
+                                elementsPendingErasure:
+                                  this.elementsPendingErasure,
+                                pendingFlowchartNodes: null,
+                                theme: this.state.theme,
+                              }}
+                            />
+                          )}
+                          {draggedElements.length > 0 && (
+                            <DragElementsCanvas
+                              canvas={null}
+                              rc={this.rc}
+                              elementsMap={renderableElementsMap}
+                              allElementsMap={allElementsMap}
+                              draggedElements={draggedElements}
+                              scale={window.devicePixelRatio}
+                              appState={this.state}
                               renderConfig={{
                                 imageCache: this.imageCache,
                                 isExporting: false,
@@ -2666,6 +2702,7 @@ class App extends React.Component<AppProps, AppState> {
                             api={this.api}
                             assets={this.props.customElementAssets ?? null}
                             runtime={this.customElementOverlayRuntime}
+                            hoverStore={this.customElementHoverStore}
                           />
                           <CustomElementLifecycleLayer
                             elements={this.scene.getNonDeletedElements()}
@@ -8976,6 +9013,13 @@ class App extends React.Component<AppProps, AppState> {
       return;
     }
 
+    // Dragging owns pointermove. Avoid a second full-scene hit test for
+    // hover/cursor affordances while the drag renderer is active.
+    if (this.state.selectedElementsAreBeingDragged) {
+      this.customElementHoverStore.setHoveredElement(null);
+      return;
+    }
+
     const hitElementMightBeLocked = this.getElementAtPosition(
       scenePointerX,
       scenePointerY,
@@ -8993,6 +9037,10 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     if (this.state.openDialog?.name !== "elementLinkSelector") {
+      this.customElementHoverStore.setHoveredElement(
+        hitElement && isCustomElement(hitElement) ? hitElement.id : null,
+      );
+    } else {
       this.setState((prevState) => {
         const hoveredElementIds = updateStable(
           prevState.hoveredElementIds,

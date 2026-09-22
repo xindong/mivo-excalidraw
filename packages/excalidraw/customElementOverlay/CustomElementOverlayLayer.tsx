@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 import { isCustomElement } from "@excalidraw/element";
@@ -41,6 +42,32 @@ import type { AppState, ExcalidrawImperativeAPI } from "../types";
 import "./CustomElementOverlayLayer.scss";
 
 type OverlaySize = Readonly<{ width: number; height: number }>;
+
+export type CustomElementHoverStore = Readonly<{
+  getHoveredElementId: () => string | null;
+  setHoveredElement: (elementId: string | null) => void;
+  subscribe: (listener: () => void) => () => void;
+}>;
+
+export const createCustomElementHoverStore = (): CustomElementHoverStore => {
+  let hoveredElementId: string | null = null;
+  const listeners = new Set<() => void>();
+
+  return {
+    getHoveredElementId: () => hoveredElementId,
+    setHoveredElement: (nextElementId) => {
+      if (hoveredElementId === nextElementId) {
+        return;
+      }
+      hoveredElementId = nextElementId;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+};
 
 type DesiredOverlayItem = Readonly<{
   key: string;
@@ -411,6 +438,7 @@ export const CustomElementOverlayLayer = ({
   api,
   assets,
   runtime,
+  hoverStore,
 }: {
   elementsMap: NonDeletedSceneElementsMap;
   elementCollectionRevision: number;
@@ -419,6 +447,7 @@ export const CustomElementOverlayLayer = ({
   api: ExcalidrawImperativeAPI;
   assets: CustomElementAssetStore | null;
   runtime: CustomElementOverlayRuntime;
+  hoverStore?: CustomElementHoverStore;
 }) => {
   const registryRevision = useExternalRevision(
     subscribeCustomElementOverlays,
@@ -427,6 +456,11 @@ export const CustomElementOverlayLayer = ({
   const runtimeRevision = useExternalRevision(
     runtime.subscribe,
     runtime.getSnapshot,
+  );
+  const hoveredElementId = useSyncExternalStore(
+    hoverStore?.subscribe ?? (() => () => undefined),
+    hoverStore?.getHoveredElementId ?? (() => null),
+    hoverStore?.getHoveredElementId ?? (() => null),
   );
   const { sizes, registerNode } = useOverlaySizes();
   const initializedOverlays = useRef(new Set<string>());
@@ -485,7 +519,9 @@ export const CustomElementOverlayLayer = ({
         state: runtime.getState(element.id, stateScope),
         isSelected: !!appState.selectedElementIds[element.id],
         selectedElementCount,
-        isHovered: !!appState.hoveredElementIds[element.id],
+        isHovered:
+          hoveredElementId === element.id ||
+          !!appState.hoveredElementIds[element.id],
         isActive: runtime.isOpen(element.id, overlay.id),
         isInViewport,
         overlayId: overlay.id,
@@ -503,7 +539,7 @@ export const CustomElementOverlayLayer = ({
           runtime.patchState(element.id, stateScope, patch),
       };
     },
-    [api, appState, assets, runtime, selectedElementCount],
+    [api, appState, assets, hoveredElementId, runtime, selectedElementCount],
   );
 
   useEffect(() => {

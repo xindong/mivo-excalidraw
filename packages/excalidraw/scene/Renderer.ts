@@ -26,8 +26,13 @@ import type { AppState } from "../types";
 type ViewportProjection = {
   elementsMap: RenderableElementsMap;
   visibleElements: readonly NonDeletedExcalidrawElement[];
+  staticElementsMap: RenderableElementsMap;
+  staticVisibleElements: readonly NonDeletedExcalidrawElement[];
+  draggedElements: readonly NonDeletedExcalidrawElement[];
+  selectedDragElements: readonly NonDeletedExcalidrawElement[];
   newElementCanvasElement: NonDeleted<ExcalidrawNonSelectionElement> | null;
   canvasNonce: string;
+  staticCanvasNonce: string;
 };
 
 type GetRenderableElementsOpts = {
@@ -228,6 +233,7 @@ export class Renderer {
     width: number;
     editingTextElement: AppState["editingTextElement"];
     newElement: AppState["newElement"];
+    frameToHighlight: AppState["frameToHighlight"];
     ret: ViewportProjection;
   } | null = null;
 
@@ -249,31 +255,47 @@ export class Renderer {
       projection.height === opts.height &&
       projection.width === opts.width &&
       projection.editingTextElement === opts.editingTextElement &&
-      projection.newElement === opts.newElement
+      projection.newElement === opts.newElement &&
+      projection.frameToHighlight === opts.frameToHighlight &&
+      sameElementIds(projection.ret.selectedDragElements, opts.selectedElements)
     ) {
-      // 拖动时必须暴露最新的 canvasNonce 给 StaticCanvas，否则其 React.memo
-      // 会认为场景未变而跳过重绘，导致拖动中的节点在静态主画布上不更新位置。
-      return {
-        ...projection.ret,
-        canvasNonce,
+      const nextProjection = projection.ret.draggedElements.length
+        ? {
+            ...projection.ret,
+            canvasNonce,
+            selectedDragElements: opts.selectedElements,
+            draggedElements: replaceSelectedDragElements(
+              projection.ret.draggedElements,
+              opts.selectedElements,
+            ),
+          }
+        : this.withDragLayers(projection.ret, opts, canvasNonce);
+      this.dragViewportProjection = {
+        ...projection,
+        ret: nextProjection,
       };
+      return nextProjection;
     }
 
-    const ret = this._getRenderableElements({
+    const ret = this.withDragLayers(
+      this._getRenderableElements({
+        canvasNonce,
+
+        // don't spread `opts` because we don't want to memoize on some props
+
+        zoom: opts.zoom,
+        offsetLeft: opts.offsetLeft,
+        offsetTop: opts.offsetTop,
+        scrollX: opts.scrollX,
+        scrollY: opts.scrollY,
+        height: opts.height,
+        width: opts.width,
+        editingTextElement: opts.editingTextElement,
+        newElement: opts.newElement,
+      }),
+      opts,
       canvasNonce,
-
-      // don't spread `opts` because we don't want to memoize on some props
-
-      zoom: opts.zoom,
-      offsetLeft: opts.offsetLeft,
-      offsetTop: opts.offsetTop,
-      scrollX: opts.scrollX,
-      scrollY: opts.scrollY,
-      height: opts.height,
-      width: opts.width,
-      editingTextElement: opts.editingTextElement,
-      newElement: opts.newElement,
-    });
+    );
 
     this.dragViewportProjection = {
       zoom: opts.zoom,
@@ -285,6 +307,7 @@ export class Renderer {
       width: opts.width,
       editingTextElement: opts.editingTextElement,
       newElement: opts.newElement,
+      frameToHighlight: opts.frameToHighlight,
       ret,
     };
 
@@ -314,6 +337,50 @@ export class Renderer {
     return ret;
   };
 
+  private withDragLayers = (
+    ret: Pick<
+      ViewportProjection,
+      "elementsMap" | "visibleElements" | "newElementCanvasElement" | "canvasNonce"
+    >,
+    opts: GetRenderableElementsOpts,
+    canvasNonce: string,
+  ): ViewportProjection => {
+    if (!opts.selectedElementsAreBeingDragged || !opts.selectedElements.length) {
+      return {
+        ...ret,
+        staticElementsMap: ret.elementsMap,
+        staticVisibleElements: ret.visibleElements,
+        draggedElements: [],
+        selectedDragElements: [],
+        staticCanvasNonce: canvasNonce,
+      };
+    }
+
+    const selectedIds = new Set(opts.selectedElements.map((element) => element.id));
+    const staticVisibleElements: NonDeletedExcalidrawElement[] = [];
+    const draggedConnectors: NonDeletedExcalidrawElement[] = [];
+
+    for (const element of ret.visibleElements) {
+      if (selectedIds.has(element.id)) {
+        continue;
+      }
+      if (isBoundToAny(element, selectedIds)) {
+        draggedConnectors.push(element);
+        continue;
+      }
+      staticVisibleElements.push(element);
+    }
+
+    return {
+      ...ret,
+      staticElementsMap: ret.elementsMap,
+      staticVisibleElements,
+      draggedElements: [...draggedConnectors, ...opts.selectedElements],
+      selectedDragElements: opts.selectedElements,
+      staticCanvasNonce: `${canvasNonce}:drag-static:${[...selectedIds].join(",")}`,
+    };
+  };
+
   // NOTE Doesn't destroy everything (scene, rc, etc.) because it may not be
   // safe to break TS contract here (for upstream cases)
   public destroy() {
@@ -322,3 +389,42 @@ export class Renderer {
     this.dragViewportProjection = null;
   }
 }
+
+const sameElementIds = (
+  left: readonly NonDeletedExcalidrawElement[],
+  right: readonly NonDeletedExcalidrawElement[],
+) =>
+  left.length === right.length &&
+  left.every((element, index) => element.id === right[index]?.id);
+
+const isBoundToAny = (
+  element: NonDeletedExcalidrawElement,
+  elementIds: ReadonlySet<string>,
+) => {
+  if (
+    "startBinding" in element &&
+    element.startBinding &&
+    elementIds.has(element.startBinding.elementId)
+  ) {
+    return true;
+  }
+  if (
+    "endBinding" in element &&
+    element.endBinding &&
+    elementIds.has(element.endBinding.elementId)
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const replaceSelectedDragElements = (
+  draggedElements: readonly NonDeletedExcalidrawElement[],
+  selectedElements: readonly NonDeletedExcalidrawElement[],
+) => {
+  const selectedIds = new Set(selectedElements.map((element) => element.id));
+  const dynamicDependencies = draggedElements.filter(
+    (element) => !selectedIds.has(element.id),
+  );
+  return [...dynamicDependencies, ...selectedElements];
+};

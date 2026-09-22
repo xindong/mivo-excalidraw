@@ -96,6 +96,17 @@ export type StaticSceneRenderConfig = {
   renderConfig: StaticCanvasRenderConfig;
 };
 
+export type DragElementsSceneRenderConfig = {
+  canvas: HTMLCanvasElement | null;
+  rc: RoughCanvas;
+  elementsMap: RenderableElementsMap;
+  allElementsMap: NonDeletedSceneElementsMap;
+  draggedElements: readonly NonDeletedExcalidrawElement[];
+  scale: number;
+  appState: StaticCanvasAppState;
+  renderConfig: StaticCanvasRenderConfig;
+};
+
 export type InteractiveSceneRenderAnimationState = {
   bindingHighlight: { runtime: number } | undefined;
 };
