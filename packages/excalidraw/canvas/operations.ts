@@ -337,7 +337,7 @@ const applySceneOperation = (
   if (operation.type === "layout") {
     ensureElements(elements, operation.elementIds);
     return {
-      elements: layoutCanvasElements(elements, operation),
+      elements: layoutElements(elements, operation),
       created: [],
       touched: [...operation.elementIds],
     };
@@ -666,13 +666,36 @@ const transformElements = (
         : {}),
     }) as OrderedExcalidrawElement;
   });
-  const scene = new Scene(transformed);
-  const transformedSelected = transformed
+  return refreshBindingsAfterElementMove(transformed, ids);
+};
+
+const layoutElements = (
+  elements: readonly OrderedExcalidrawElement[],
+  operation: Extract<CanvasOperation, { type: "layout" }>,
+) =>
+  refreshBindingsAfterElementMove(
+    layoutCanvasElements(elements, operation),
+    new Set(operation.elementIds),
+  );
+
+/**
+ * Applies the binding lifecycle after a batch has moved its endpoint nodes.
+ *
+ * Bound connectors derive their geometry from endpoint bindings. Every moved
+ * node therefore needs to be visited after all positions have been committed,
+ * so connectors read the new geometry for both endpoints in one batch.
+ */
+const refreshBindingsAfterElementMove = (
+  elements: readonly OrderedExcalidrawElement[],
+  movedElementIds: ReadonlySet<string>,
+) => {
+  const scene = new Scene(elements);
+  const movedElements = elements
     .filter(isNonDeletedElement)
-    .filter((element) => ids.has(element.id));
-  for (const element of transformedSelected) {
+    .filter((element) => movedElementIds.has(element.id));
+  for (const element of movedElements) {
     updateBoundElements(element, scene, {
-      simultaneouslyUpdated: transformedSelected,
+      simultaneouslyUpdated: movedElements,
     });
     handleBindTextResize(element, scene, false);
   }
